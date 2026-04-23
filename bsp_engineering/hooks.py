@@ -10,6 +10,14 @@ app_license = "mit"
 
 # required_apps = []
 
+
+# Fixtures 
+
+fixtures = [
+    {"dt": "Custom Field"},
+    {"dt": "Property Setter"},
+]
+
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
 # 	{
@@ -137,34 +145,31 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	'Sales Invoice': {
+		'on_submit': (
+			'bsp_engineering.doc_events.sales_invoice.create_payment.'
+			'create_payment_and_delivery_on_submit'
+		),
+	},
+	'Delivery Note': {
+		'on_submit': (
+			'bsp_engineering.doc_events.delivery_note.'
+			'send_stock_notification.send_stock_notification_on_submit'
+		),
+	},
+}
 
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"bsp_engineering.tasks.all"
-# 	],
-# 	"daily": [
-# 		"bsp_engineering.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"bsp_engineering.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"bsp_engineering.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"bsp_engineering.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	'cron': {
+		'*/15 * * * *': [
+			'bsp_engineering.utils.schedule_task.send_low_stock_alert_report'
+		]
+	}
+}
 
 # Testing
 # -------

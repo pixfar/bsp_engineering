@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-23 11:07:13.100334",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "low_stock_alert_qtq",
+  "column_break_efdc",
+  "low_stock_alert_role",
+  "column_break_qevj",
+  "low_stock_alert_time"
+ ],
+ "fields": [
+  {
+   "fieldname": "low_stock_alert_qtq",
+   "fieldtype": "Data",
+   "label": "Low Stock Alert Qtq"
+  },
+  {
+   "fieldname": "column_break_efdc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "low_stock_alert_role",
+   "fieldtype": "Link",
+   "label": "Low Stock Alert Role",
+   "options": "Role"
+  },
+  {
+   "fieldname": "column_break_qevj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "low_stock_alert_time",
+   "fieldtype": "Time",
+   "label": "Low Stock Alert Time"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-04-23 13:06:35.832397",
+ "modified_by": "Administrator",
+ "module": "Bsp Engineering",
+ "name": "BSP System Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
