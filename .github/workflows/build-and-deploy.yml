@@ -59,23 +59,21 @@ jobs:
           ]'
 
           # Write apps JSON to a file to safely pass it as a Docker secret
-          echo "$APPS_JSON" > apps.json
+          export APPS_JSON_BASE64=$(echo ${APPS_JSON} | base64 -w 0)
 
           # Define image tag
           IMAGE_TAG="registry.gitlab.com/pixfar/pixfar-container-registry/erp-all-demo:bsp"
                     
           # Build and push to registry
+          # Build once with multiple tags and push to all registries
           docker buildx build \
             --no-cache \
-            --progress=plain \
-            --network=host \
-            --build-arg BASE_IMAGE_TAG=version-15 \
+            --platform linux/amd64 \
             --build-arg FRAPPE_PATH=https://github.com/frappe/frappe \
             --build-arg FRAPPE_BRANCH=version-15 \
             --build-arg PYTHON_VERSION=3.11.9 \
-            --build-arg NODE_VERSION=20.18.0 \
-            --build-arg NODE_OPTIONS="--max-old-space-size=8096" \
-            --secret id=apps_json,src=apps.json \
-            --tag "$IMAGE_TAG" \
+            --build-arg NODE_VERSION=20.19.2 \
+            --build-arg APPS_JSON_BASE64="$APPS_JSON_BASE64" \
+            --tag "$DOCKER_HUB_TAG" \
             --file images/custom/Containerfile \
             --push .
