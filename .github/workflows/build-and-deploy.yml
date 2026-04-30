@@ -74,6 +74,6 @@ jobs:
             --build-arg PYTHON_VERSION=3.11.9 \
             --build-arg NODE_VERSION=20.19.2 \
             --build-arg APPS_JSON_BASE64="$APPS_JSON_BASE64" \
-            --tag "$DOCKER_HUB_TAG" \
+            --tag "$IMAGE_TAG" \
             --file images/custom/Containerfile \
             --push .
