@@ -41,8 +41,8 @@ jobs:
               "branch": "version-15"
             },
             {
-              "url": "https://gitlab.com/excel.azmin/whitelabel.git",
-              "branch": "main"
+              "url": "https://gitlab.com/pixfar/whitelabel.git",
+              "branch": "master"
             },
             {
               "url": "https://github.com/pixfar/flex_erp.git",
