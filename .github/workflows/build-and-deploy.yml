@@ -55,6 +55,10 @@ jobs:
             {
               "url": "https://github.com/pixfar/bsp_engineering.git",
               "branch": "develop"
+            },
+            {
+              "url": "https://github.com/defendicon/POS-Awesome-V15.git",
+              "branch": "15.28.2"
             }
           ]'
 
