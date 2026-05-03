@@ -1,0 +1,83 @@
+name: Frappe Docker Development Build and Deploy for BSP Engineering
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: true
+        default: "develop"
+        type: string
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          repository: Excel-Technologies-Ltd/excel-frappe-docker
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitLab Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.gitlab.com
+          username: ${{ secrets.GITLAB_USERNAME }}
+          password: ${{ secrets.GITLAB_TOKEN }}
+
+      - name: Build and Push Frappe Docker Image
+        run: |
+          # Define apps JSON
+          export APPS_JSON='[
+            {
+              "url": "https://github.com/frappe/erpnext",
+              "branch": "version-15"
+            },
+            {
+              "url": "https://github.com/frappe/hrms.git",
+              "branch": "version-15"
+            },
+            {
+              "url": "https://gitlab.com/pixfar/whitelabel.git",
+              "branch": "master"
+            },
+            {
+              "url": "https://github.com/pixfar/flex_erp.git",
+              "branch": "master"
+            },
+            {
+              "url": "https://github.com/frappe/lending.git",
+              "branch": "version-15"
+            },
+            {
+              "url": "https://github.com/pixfar/bsp_engineering.git",
+              "branch": "develop"
+            },
+            {
+              "url": "https://github.com/defendicon/POS-Awesome-V15.git",
+              "branch": "15.28.2"
+            }
+          ]'
+
+          # Write apps JSON to a file to safely pass it as a Docker secret
+          export APPS_JSON_BASE64=$(echo ${APPS_JSON} | base64 -w 0)
+
+          # Define image tag
+          IMAGE_TAG="registry.gitlab.com/pixfar/pixfar-container-registry/erp-all-demo:bsp"
+                    
+          # Build and push to registry
+          # Build once with multiple tags and push to all registries
+          docker buildx build \
+            --no-cache \
+            --platform linux/amd64 \
+            --build-arg FRAPPE_PATH=https://github.com/frappe/frappe \
+            --build-arg FRAPPE_BRANCH=version-15 \
+            --build-arg PYTHON_VERSION=3.11.9 \
+            --build-arg NODE_VERSION=20.19.2 \
+            --build-arg APPS_JSON_BASE64="$APPS_JSON_BASE64" \
+            --tag "$IMAGE_TAG" \
+            --file images/custom/Containerfile \
+            --push .
