@@ -146,6 +146,17 @@ fixtures = [
 # Hook on document methods and events
 
 doc_events = {
+	'Item': {
+		'before_validate': (
+			'bsp_engineering.doc_events.item.auto_barcode.ensure_auto_barcode'
+		),
+		'after_insert': (
+			'bsp_engineering.doc_events.item.auto_barcode.sync_item_barcode_image'
+		),
+		'on_update': (
+			'bsp_engineering.doc_events.item.auto_barcode.sync_item_barcode_image'
+		),
+	},
 	'Sales Invoice': {
 		'on_submit': (
 			'bsp_engineering.doc_events.sales_invoice.create_payment.'
