@@ -14,6 +14,18 @@ app_license = "mit"
 # Fixtures 
 
 fixtures = [
+	{
+        "dt": "Workspace",
+        "filters": [
+            [
+                "name",
+                "in",
+                [
+                    "BSP",
+                ],
+            ]
+        ],
+    },
     {"dt": "Custom Field"},
     {"dt": "Property Setter"},
 ]

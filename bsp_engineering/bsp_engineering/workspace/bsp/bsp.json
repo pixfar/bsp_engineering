@@ -1,0 +1,206 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"RJVBWzVPUt\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item List\",\"col\":3}},{\"id\":\"2y7UlPxMHu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item Group List\",\"col\":3}},{\"id\":\"GaOiYFZRs8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Territory List\",\"col\":3}},{\"id\":\"v7slKX33AT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse List\",\"col\":3}},{\"id\":\"AuTO17jPyD\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer List\",\"col\":3}},{\"id\":\"jn024QXroN\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Supplier List\",\"col\":3}},{\"id\":\"5387P6VhHF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice List\",\"col\":3}},{\"id\":\"TaGDNWj44n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Order List\",\"col\":3}},{\"id\":\"AacwciNL8B\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice List\",\"col\":3}},{\"id\":\"fNfNKzQxy3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payment Entry List\",\"col\":3}},{\"id\":\"DuW7xIQTRK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry List\",\"col\":3}},{\"id\":\"MbYR8dP42X\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Delivery Note List\",\"col\":3}},{\"id\":\"CIaunoYLPG\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Manufacturing</b></span>\",\"col\":12}},{\"id\":\"yTTdIp5lZd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"BOM List\",\"col\":3}},{\"id\":\"IfFz-t7NNT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Plan List\",\"col\":3}},{\"id\":\"Ng5hll43S3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Work Order List\",\"col\":3}},{\"id\":\"ygyqIbN3qw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\" Material Request List\",\"col\":3}},{\"id\":\"EBPORzX0ng\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>HR</b></span>\",\"col\":12}},{\"id\":\"I9Fs0b779y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Employee List\",\"col\":3}},{\"id\":\"3xjEaEkH80\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Attendance List\",\"col\":3}},{\"id\":\"cuuxuHVAAc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Leave Application List\",\"col\":3}},{\"id\":\"zEo3Idi_yA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure List\",\"col\":3}},{\"id\":\"8c0G1qrYfR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure Assignment List\",\"col\":3}},{\"id\":\"lr3R-Y9cew\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Slip List\",\"col\":3}}]",
+ "creation": "2026-05-05 15:46:13.092828",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "image-view",
+ "idx": 0,
+ "indicator_color": "",
+ "is_hidden": 0,
+ "label": "BSP",
+ "links": [],
+ "modified": "2026-05-05 16:12:14.954976",
+ "modified_by": "Administrator",
+ "module": "Bsp Engineering",
+ "name": "BSP",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 39.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "BOM List",
+   "link_to": "BOM",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Employee List",
+   "link_to": "Employee",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Item List",
+   "link_to": "Item",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Purchase Invoice List",
+   "link_to": "Purchase Invoice",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Customer List",
+   "link_to": "Customer",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Item Group List",
+   "link_to": "Item Group",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Production Plan List",
+   "link_to": "Production Plan",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Attendance List",
+   "link_to": "Attendance",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Invoice List",
+   "link_to": "Sales Invoice",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Territory List",
+   "link_to": "Territory",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Work Order List",
+   "link_to": "Work Order",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Leave Application List",
+   "link_to": "Leave Application",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Warehouse List",
+   "link_to": "Warehouse",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": " Material Request List",
+   "link_to": "Material Request",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Salary Structure List",
+   "link_to": "Salary Structure",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Supplier List",
+   "link_to": "Supplier",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Salary Structure Assignment List",
+   "link_to": "Salary Structure Assignment",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Purchase Order List",
+   "link_to": "Purchase Order",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Salary Slip List",
+   "link_to": "Salary Slip",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Payment Entry List",
+   "link_to": "Payment Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Stock Entry List",
+   "link_to": "Stock Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Delivery Note List",
+   "link_to": "Delivery Note",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "BSP"
+}
