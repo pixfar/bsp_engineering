@@ -181,7 +181,6 @@ doc_events = {
 	},
 	'Delivery Note': {
 		'on_submit': (
-			'bsp_engineering.doc_events.delivery_note.'
 			'send_stock_notification.send_stock_notification_on_submit'
 		),
 	},
