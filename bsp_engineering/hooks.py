@@ -12,7 +12,7 @@ app_license = "mit"
 
 # Custom CSS
 
-# app_include_css = "/assets/bsp_engineering/css/theme.css"
+app_include_css = "/assets/bsp_engineering/css/theme.css"
 
 # Fixtures 
 
