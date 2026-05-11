@@ -10,6 +10,9 @@ app_license = "mit"
 
 # required_apps = []
 
+# Custom CSS
+
+# app_include_css = "/assets/bsp_engineering/css/theme.css"
 
 # Fixtures 
 
@@ -22,6 +25,7 @@ fixtures = [
                 "in",
                 [
                     "BSP",
+                    "My Workspace",
                 ],
             ]
         ],
