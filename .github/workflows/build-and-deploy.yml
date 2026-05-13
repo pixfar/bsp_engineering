@@ -16,7 +16,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          repository: Excel-Technologies-Ltd/excel-frappe-docker
+          repository: excelazmin/frappe_docker
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
