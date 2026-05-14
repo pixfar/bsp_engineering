@@ -175,15 +175,19 @@ doc_events = {
 	},
 	'Sales Invoice': {
 		'on_submit': (
-			'bsp_engineering.doc_events.sales_invoice.create_payment.'
-			'create_payment_and_delivery_on_submit'
+			'bsp_engineering.doc_events.sales_invoice.create_payment.create_payment_entry_from_sales_invoice'
 		),
 	},
-	'Delivery Note': {
+	'Purchase Invoice': {
 		'on_submit': (
-			'send_stock_notification.send_stock_notification_on_submit'
+			'bsp_engineering.doc_events.purchase_invoice.create_payment.create_payment_entry_from_purchase_invoice'
 		),
 	},
+	# 'Delivery Note': {
+	# 	'on_submit': (
+	# 		'bsp_engineering.doc_events.delivery_note.send_stock_notification.send_stock_notification_on_submit'
+	# 	),
+	# },
 }
 
 # Scheduled Tasks

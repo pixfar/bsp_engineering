@@ -1,7 +1,7 @@
 {
  "charts": [],
- "content": "[{\"id\":\"RJVBWzVPUt\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item List\",\"col\":3}},{\"id\":\"2y7UlPxMHu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item Group List\",\"col\":3}},{\"id\":\"GaOiYFZRs8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Territory List\",\"col\":3}},{\"id\":\"v7slKX33AT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse List\",\"col\":3}},{\"id\":\"AuTO17jPyD\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer List\",\"col\":3}},{\"id\":\"jn024QXroN\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Supplier List\",\"col\":3}},{\"id\":\"5387P6VhHF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice List\",\"col\":3}},{\"id\":\"TaGDNWj44n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Order List\",\"col\":3}},{\"id\":\"AacwciNL8B\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice List\",\"col\":3}},{\"id\":\"fNfNKzQxy3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payment Entry List\",\"col\":3}},{\"id\":\"DuW7xIQTRK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry List\",\"col\":3}},{\"id\":\"MbYR8dP42X\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Delivery Note List\",\"col\":3}},{\"id\":\"CIaunoYLPG\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Manufacturing</b></span>\",\"col\":12}},{\"id\":\"yTTdIp5lZd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"BOM List\",\"col\":3}},{\"id\":\"IfFz-t7NNT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Plan List\",\"col\":3}},{\"id\":\"Ng5hll43S3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Work Order List\",\"col\":3}},{\"id\":\"ygyqIbN3qw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\" Material Request List\",\"col\":3}},{\"id\":\"EBPORzX0ng\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>HR</b></span>\",\"col\":12}},{\"id\":\"I9Fs0b779y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Employee List\",\"col\":3}},{\"id\":\"3xjEaEkH80\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Attendance List\",\"col\":3}},{\"id\":\"cuuxuHVAAc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Leave Application List\",\"col\":3}},{\"id\":\"zEo3Idi_yA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure List\",\"col\":3}},{\"id\":\"8c0G1qrYfR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure Assignment List\",\"col\":3}},{\"id\":\"lr3R-Y9cew\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Slip List\",\"col\":3}}]",
- "creation": "2026-05-05 15:46:13.092828",
+ "content": "[{\"id\":\"RJVBWzVPUt\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item List\",\"col\":3}},{\"id\":\"2y7UlPxMHu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item Group List\",\"col\":3}},{\"id\":\"GaOiYFZRs8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Territory List\",\"col\":3}},{\"id\":\"v7slKX33AT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse List\",\"col\":3}},{\"id\":\"AuTO17jPyD\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer List\",\"col\":3}},{\"id\":\"jn024QXroN\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Supplier List\",\"col\":3}},{\"id\":\"5387P6VhHF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice List\",\"col\":3}},{\"id\":\"TaGDNWj44n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Order List\",\"col\":3}},{\"id\":\"AacwciNL8B\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice List\",\"col\":3}},{\"id\":\"fNfNKzQxy3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payment Entry List\",\"col\":3}},{\"id\":\"DuW7xIQTRK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry List\",\"col\":3}},{\"id\":\"MbYR8dP42X\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Delivery Note List\",\"col\":3}},{\"id\":\"CIaunoYLPG\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Manufacturing</b></span>\",\"col\":12}},{\"id\":\"yTTdIp5lZd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"BOM List\",\"col\":3}},{\"id\":\"IfFz-t7NNT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Plan List\",\"col\":3}},{\"id\":\"Ng5hll43S3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Work Order List\",\"col\":3}},{\"id\":\"ygyqIbN3qw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\" Material Request List\",\"col\":3}},{\"id\":\"EBPORzX0ng\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>HR</b></span>\",\"col\":12}},{\"id\":\"I9Fs0b779y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Employee List\",\"col\":3}},{\"id\":\"3xjEaEkH80\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Attendance List\",\"col\":3}},{\"id\":\"cuuxuHVAAc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Leave Application List\",\"col\":3}},{\"id\":\"zEo3Idi_yA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure List\",\"col\":3}},{\"id\":\"8c0G1qrYfR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure Assignment List\",\"col\":3}},{\"id\":\"lr3R-Y9cew\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Slip List\",\"col\":3}},{\"id\":\"yNvYTAsQ-S\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"wFG70H8C7S\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Low Stock Alert Report\",\"col\":3}},{\"id\":\"8lwZwP0z_E\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Product Weight Report Summary\",\"col\":3}}]",
+ "creation": "2026-05-14 22:30:45.285277",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -13,8 +13,8 @@
  "is_hidden": 0,
  "label": "BSP",
  "links": [],
- "modified": "2026-05-05 16:12:14.954976",
- "modified_by": "Administrator",
+ "modified": "2026-05-14 23:02:43.282419",
+ "modified_by": "azmin@pixfar.com",
  "module": "Bsp Engineering",
  "name": "BSP",
  "number_cards": [],
@@ -23,8 +23,16 @@
  "public": 1,
  "quick_lists": [],
  "roles": [],
- "sequence_id": 39.0,
+ "sequence_id": 36.0,
  "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Low Stock Alert Report",
+   "link_to": "Low Stock Alert Report",
+   "report_ref_doctype": "Bin",
+   "type": "Report"
+  },
   {
    "color": "Grey",
    "doc_view": "List",
@@ -32,6 +40,14 @@
    "link_to": "BOM",
    "stats_filter": "[]",
    "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Product Weight Report Summary",
+   "link_to": "Product Weight Report Summary",
+   "report_ref_doctype": "Bin",
+   "type": "Report"
   },
   {
    "color": "Grey",

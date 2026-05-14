@@ -23,7 +23,11 @@ def create_payment_and_delivery_on_submit(doc, method=None):
 	)
 
 
-def create_payment_entry_from_sales_invoice(doc):
+def create_payment_entry_from_sales_invoice(doc, method=None):
+	if doc.is_pos:
+		doc.db_set('custom_is_paid', 1, update_modified=False)
+		return True, 'POS invoice — payment handled by POS.'
+
 	if _has_existing_payment_entry(doc.name):
 		doc.db_set('custom_is_paid', 1, update_modified=False)
 		return True, 'Payment Entry already exists for this invoice.'
