@@ -24,12 +24,16 @@ def create_payment_and_delivery_on_submit(doc, method=None):
 
 
 def create_payment_entry_from_sales_invoice(doc, method=None):
-	if doc.is_pos:
+	# POS invoices: payment captured by POS itself, auto-mark as paid
+	if doc.is_pos or doc.pos_profile:
 		doc.db_set('custom_is_paid', 1, update_modified=False)
 		return True, 'POS invoice — payment handled by POS.'
 
+	# Respect the Is Paid checkbox — skip if unchecked
+	if not doc.custom_is_paid:
+		return False, 'Payment entry skipped — Is Paid is unchecked.'
+
 	if _has_existing_payment_entry(doc.name):
-		doc.db_set('custom_is_paid', 1, update_modified=False)
 		return True, 'Payment Entry already exists for this invoice.'
 
 	try:
@@ -39,7 +43,6 @@ def create_payment_entry_from_sales_invoice(doc, method=None):
 		payment_entry.reference_date = doc.posting_date
 		payment_entry.insert(ignore_permissions=True)
 		payment_entry.submit()
-		doc.db_set('custom_is_paid', 1, update_modified=False)
 		return True, f'Payment Entry {payment_entry.name} created.'
 	except Exception as error:
 		frappe.log_error(

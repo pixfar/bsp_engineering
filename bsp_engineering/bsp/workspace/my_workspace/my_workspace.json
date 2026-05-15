@@ -1,7 +1,7 @@
 {
  "charts": [],
  "content": "[{\"id\":\"kb3XPLg8lb\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Sales</span>\",\"col\":12}},{\"id\":\"CPxEyhaf3G\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"nWd2KJPW8l\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item\",\"col\":3}},{\"id\":\"snrzfbFr5Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer\",\"col\":3}},{\"id\":\"d_KVM1gsf9\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"JVu8-FJZCu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Purchase</b></span>\",\"col\":12}},{\"id\":\"BBRXM1ZW02\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice\",\"col\":3}},{\"id\":\"SHJKakmLLf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Supplier\",\"col\":3}},{\"id\":\"F2fYhdgnDG\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FtyW-fkKwl\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Stock</b></span>\",\"col\":12}},{\"id\":\"LNO3JgByoV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Material Request\",\"col\":3}},{\"id\":\"N_tG-GZfmT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry\",\"col\":3}}]",
- "creation": "2026-05-14 22:30:45.405727",
+ "creation": "2026-05-15 00:54:55.874737",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -201,9 +201,9 @@
    "type": "Link"
   }
  ],
- "modified": "2026-05-14 23:03:05.793631",
+ "modified": "2026-05-15 12:50:52.252209",
  "modified_by": "azmin@pixfar.com",
- "module": "Bsp Engineering",
+ "module": "BSP",
  "name": "My Workspace",
  "number_cards": [],
  "owner": "Administrator",
