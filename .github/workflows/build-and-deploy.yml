@@ -57,8 +57,8 @@ jobs:
               "branch": "develop"
             },
             {
-              "url": "https://github.com/defendicon/POS-Awesome-V15.git",
-              "branch": "15.28.2"
+              "url": "https://github.com/pixfar/POS-Awesome-V15",
+              "branch": "master"
             }
           ]'
 
