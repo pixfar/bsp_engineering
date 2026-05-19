@@ -68,7 +68,7 @@ fixtures = [
 
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_list_js = {"Purchase Invoice": "public/js/purchase_invoice_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -179,8 +179,12 @@ doc_events = {
 		),
 	},
 	'Purchase Invoice': {
-		'on_submit': (
-			'bsp_engineering.doc_events.purchase_invoice.create_payment.create_payment_entry_from_purchase_invoice'
+		'on_submit': [
+			'bsp_engineering.doc_events.purchase_invoice.create_payment.create_payment_entry_from_purchase_invoice',
+			'bsp_engineering.doc_events.purchase_invoice.update_delivery_status.update_delivery_status',
+		],
+		'on_update_after_submit': (
+			'bsp_engineering.doc_events.purchase_invoice.update_delivery_status.update_delivery_status'
 		),
 	},
 	# 'Delivery Note': {

@@ -6,6 +6,9 @@ from erpnext.accounts.doctype.payment_entry.payment_entry import (
 
 
 def create_payment_entry_from_purchase_invoice(doc, method=None):
+	if not doc.custom_is_paid:
+		return
+
 	if _has_existing_payment_entry(doc.name):
 		doc.db_set('custom_is_paid', 1, update_modified=False)
 		return
