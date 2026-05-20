@@ -1,0 +1,24 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Sales Invoice",
+  "enabled": 1,
+  "modified": "2026-05-20 13:25:36.947511",
+  "module": "Bsp Engineering",
+  "name": "Hide Is Paid on Return Invoice",
+  "script": "frappe.ui.form.on('Sales Invoice', {\n    // Trigger when the form is loaded or refreshed\n    refresh: function(frm) {\n        handle_return_against(frm);\n    },\n});\n\nfunction handle_return_against(frm) {\n    // Check if the standard \"Return Against\" field has data\n    if (frm.doc.return_against) {\n        // Set the custom field value to 0\n        frm.set_value('custom_is_paid', 0);\n        \n        // Hide the custom field\n        frm.set_df_property('custom_is_paid', 'hidden', 1);\n        frm.refresh_field('custom_is_paid');\n    } else {\n        // Optional: Show the field again if Return Against is empty\n        frm.set_df_property('custom_is_paid', 'hidden', 0);\n    }\n}",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Purchase Invoice",
+  "enabled": 1,
+  "modified": "2026-05-20 13:29:44.339011",
+  "module": "Bsp Engineering",
+  "name": "Show Item by Filtering Item Group on Purchase Invoice",
+  "script": "function pi_item_code_query(item_group) {\n    const filters = { has_variants: 0, disabled: 0 };\n    if (item_group) filters.item_group = item_group;\n    return { filters };\n}\n\nfunction sync_pi_item_queries(frm) {\n    const query_fn = function (doc, cdt, cdn) {\n        return pi_item_code_query(\n            (locals[cdt] && locals[cdt][cdn] && locals[cdt][cdn].item_group) || \"\"\n        );\n    };\n\n    // Standard frappe query\n    frm.set_query(\"item_code\", \"items\", query_fn);\n\n    // Forcefully inject into the grid to override core ERPNext scripts\n    const grid = frm.fields_dict.items && frm.fields_dict.items.grid;\n    if (!grid) return;\n    (grid.grid_rows || []).forEach((grid_row) => {\n        const field = grid_row.fields_dict && grid_row.fields_dict.item_code;\n        if (field) {\n            field.get_query = function () {\n                return pi_item_code_query((grid_row.doc && grid_row.doc.item_group) || \"\");\n            };\n        }\n    });\n}\n\nfrappe.ui.form.on(\"Purchase Invoice\", {\n    refresh: function (frm) {\n        sync_pi_item_queries(frm);\n    },\n});\n\nfrappe.ui.form.on(\"Purchase Invoice Item\", {\n    item_group: function (frm, cdt, cdn) {\n        const row = frappe.get_doc(cdt, cdn);\n\n        // 1. Re-apply the query to the specific row\n        const grid = frm.fields_dict.items && frm.fields_dict.items.grid;\n        if (grid) {\n            const grid_row = grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn];\n            if (grid_row) {\n                const field = grid_row.fields_dict && grid_row.fields_dict.item_code;\n                if (field) {\n                    field.get_query = function () {\n                        return pi_item_code_query((row.item_group) || \"\");\n                    };\n                }\n            }\n        }\n\n        // 2. SMART CLEAR: Only clear the item code if it doesn't belong to the newly selected group\n        if (row.item_code) {\n            frappe.db.get_value(\"Item\", row.item_code, \"item_group\", function(r) {\n                // If the item code's actual group doesn't match the row's new item_group, it means \n                // the user manually changed the group to look for something else. Clear it!\n                if (r && r.item_group !== row.item_group) {\n                    frappe.model.set_value(cdt, cdn, \"item_code\", \"\");\n                }\n            });\n        }\n        \n        // 3. Refresh the grid to ensure the UI updates immediately\n        frm.refresh_field(\"items\");\n    },\n});",
+  "view": "Form"
+ }
+]

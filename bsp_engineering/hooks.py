@@ -30,8 +30,10 @@ fixtures = [
             ]
         ],
     },
-    {"dt": "Custom Field"},
-    {"dt": "Property Setter"},
+    { "dt": "Custom Field" },
+    { "dt": "Property Setter" },
+    { "dt": "Client Script" },
+    { "dt": "Print Format" },
 ]
 
 # Each item in the list will be shown as an app in the apps page
@@ -69,7 +71,7 @@ fixtures = [
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 doctype_js = {
-	"Purchase Invoice": "public/js/purchase_invoice.js",
+	# "Purchase Invoice": "public/js/purchase_invoice.js",
 	"Material Request": "public/js/material_request.js",
 }
 doctype_list_js = {"Purchase Invoice": "public/js/purchase_invoice_list.js"}
