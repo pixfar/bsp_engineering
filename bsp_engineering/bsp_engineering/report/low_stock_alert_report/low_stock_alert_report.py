@@ -57,10 +57,10 @@ def get_columns():
 			"width": 110,
 		},
 		{
-			"label": _("Safety Stock"),
-			"fieldname": "safety_stock",
+			"label": _("Low Stock Qty"),
+			"fieldname": "low_stock_qty",
 			"fieldtype": "Float",
-			"width": 110,
+			"width": 120,
 		},
 		{
 			"label": _("Shortage Qty"),
@@ -74,11 +74,16 @@ def get_columns():
 def get_data(filters):
 	bin_dt = DocType("Bin")
 	item_dt = DocType("Item")
+	alert_dt = DocType("Item Low Stock Alert")
 
 	query = (
 		frappe.qb.from_(bin_dt)
-		.inner_join(item_dt)
-		.on(item_dt.name == bin_dt.item_code)
+		.inner_join(item_dt).on(item_dt.name == bin_dt.item_code)
+		.inner_join(alert_dt).on(
+			(alert_dt.parent == bin_dt.item_code)
+			& (alert_dt.parenttype == "Item")
+			& (alert_dt.warehouse == bin_dt.warehouse)
+		)
 		.select(
 			bin_dt.warehouse,
 			bin_dt.item_code,
@@ -86,10 +91,10 @@ def get_data(filters):
 			item_dt.item_group,
 			bin_dt.stock_uom,
 			bin_dt.actual_qty,
-			item_dt.safety_stock,
+			alert_dt.low_stock_qty,
 		)
-		.where(item_dt.safety_stock > 0)
-		.where(bin_dt.actual_qty < item_dt.safety_stock)
+		.where(alert_dt.low_stock_qty > 0)
+		.where(bin_dt.actual_qty < alert_dt.low_stock_qty)
 		.orderby(bin_dt.warehouse, order=Order.asc)
 		.orderby(bin_dt.item_code, order=Order.asc)
 	)
@@ -106,6 +111,6 @@ def get_data(filters):
 	result = query.run(as_dict=True)
 
 	for row in result:
-		row["shortage_qty"] = frappe.utils.flt(row["safety_stock"]) - frappe.utils.flt(row["actual_qty"])
+		row["shortage_qty"] = frappe.utils.flt(row["low_stock_qty"]) - frappe.utils.flt(row["actual_qty"])
 
 	return result
