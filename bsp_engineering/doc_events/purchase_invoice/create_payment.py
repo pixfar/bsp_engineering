@@ -6,6 +6,9 @@ from erpnext.accounts.doctype.payment_entry.payment_entry import (
 
 
 def create_payment_entry_from_purchase_invoice(doc, method=None):
+	if frappe.flags.get('skip_purchase_invoice_auto_payment'):
+		return
+
 	if not doc.custom_is_paid:
 		return
 

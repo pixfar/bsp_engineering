@@ -19,6 +19,7 @@ frappe.listview_settings["Purchase Invoice"] = frappe.listview_settings["Purchas
         "Not Received": "red",
         "Partially Received": "orange",
         "Fully Received": "green",
+        "Cancelled": "grey",
     };
 
     settings.formatters = settings.formatters || {};
@@ -26,12 +27,11 @@ frappe.listview_settings["Purchase Invoice"] = frappe.listview_settings["Purchas
     settings.formatters["custom_delivery_status"] = function (value, df, doc) {
         let actual_status = value;
 
-        // 2. HIGHEST PRIORITY: If "Update Stock" is checked, it is always Fully Received
-        if (doc.update_stock === 1) {
+        if (doc.docstatus === 2) {
+            actual_status = value === "Cancelled" ? value : "Cancelled";
+        } else if (doc.update_stock === 1) {
             actual_status = "Fully Received";
-        } 
-        // 3. Otherwise, fall back to the percentage calculation
-        else if (doc.per_received >= 100) {
+        } else if (doc.per_received >= 100) {
             actual_status = "Fully Received";
         } else if (doc.per_received > 0 && doc.per_received < 100) {
             actual_status = "Partially Received";
