@@ -30,9 +30,8 @@ jobs:
 
       - name: Build and Push Frappe Docker Image
         run: |
-          # Define apps JSON (write to file for BuildKit secret — avoids token leak via build args)
-          cat > /tmp/apps.json <<'EOF'
-          [
+          # Define apps JSON and encode as base64
+          APPS_JSON='[
             {
               "url": "https://github.com/frappe/erpnext",
               "branch": "version-15"
@@ -61,13 +60,14 @@ jobs:
               "url": "https://github.com/pixfar/POS-Awesome-V15",
               "branch": "master"
             }
-          ]
-          EOF
+          ]'
+
+          APPS_JSON_BASE64=$(echo "$APPS_JSON" | base64 -w 0)
 
           # Define image tag
           IMAGE_TAG="registry.gitlab.com/pixfar/pixfar-container-registry/erp-all-demo:bsp"
 
-          # Build and push to registry using BuildKit secret for apps.json
+          # Build and push to registry
           docker buildx build \
             --no-cache \
             --platform linux/amd64 \
@@ -75,7 +75,7 @@ jobs:
             --build-arg FRAPPE_BRANCH=version-15 \
             --build-arg PYTHON_VERSION=3.11.9 \
             --build-arg NODE_VERSION=20.19.2 \
-            --secret id=apps_json,src=/tmp/apps.json \
+            --build-arg APPS_JSON_BASE64="$APPS_JSON_BASE64" \
             --tag "$IMAGE_TAG" \
             --file images/custom/Containerfile \
             --push .
