@@ -183,6 +183,12 @@ doc_events = {
 		'on_submit': (
 			'bsp_engineering.doc_events.sales_invoice.create_payment.create_payment_entry_from_sales_invoice'
 		),
+		'before_cancel': (
+			'bsp_engineering.doc_events.invoice.cancel_linked_payments.cancel_linked_payment_entries'
+		),
+		'on_cancel': (
+			'bsp_engineering.doc_events.sales_invoice.sync_workflow_on_cancel.sync_workflow_state_on_cancel'
+		),
 	},
 	'Purchase Invoice': {
 		'on_submit': [
@@ -191,6 +197,9 @@ doc_events = {
 		],
 		'on_update_after_submit': (
 			'bsp_engineering.doc_events.purchase_invoice.update_delivery_status.update_delivery_status'
+		),
+		'before_cancel': (
+			'bsp_engineering.doc_events.invoice.cancel_linked_payments.cancel_linked_payment_entries'
 		),
 	},
 	# 'Delivery Note': {
