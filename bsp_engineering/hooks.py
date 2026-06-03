@@ -73,8 +73,12 @@ fixtures = [
 doctype_js = {
 	"Purchase Invoice": "public/js/purchase_invoice.js",
 	"Material Request": "public/js/material_request.js",
+	"Requisition": "bsp_engineering/doctype/requisition/requisition.js",
 }
-doctype_list_js = {"Purchase Invoice": "public/js/purchase_invoice_list.js"}
+doctype_list_js = {
+	"Purchase Invoice": "public/js/purchase_invoice_list.js",
+	"Requisition": "public/js/requisition_list.js",
+}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -207,6 +211,14 @@ doc_events = {
 	# 		'bsp_engineering.doc_events.delivery_note.send_stock_notification.send_stock_notification_on_submit'
 	# 	),
 	# },
+	'Stock Entry': {
+		'on_submit': [
+			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
+		],
+		'on_cancel': [
+			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
+		],
+	},
 }
 
 # Scheduled Tasks
@@ -235,9 +247,12 @@ scheduler_events = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "bsp_engineering.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+	'Requisition': (
+		'bsp_engineering.bsp_engineering.doctype.requisition'
+		'.requisition_dashboard.get_data'
+	),
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

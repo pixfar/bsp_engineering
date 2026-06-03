@@ -4,10 +4,11 @@
  "creation": "2026-05-24 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
   "transaction_date",
   "column_break_top",
   "requested_by",
+  "transfer_status",
   "section_break_warehouse",
   "source_warehouse",
   "column_break_nsbt",
@@ -16,6 +17,7 @@
   "items",
   "section_break_notes",
   "notes",
+  "connections_tab",
   "amended_from"
  ],
  "fields": [
@@ -45,6 +47,18 @@
    "options": "User",
    "read_only": 1,
    "reqd": 1
+  },
+  {
+   "default": "Not Transferred",
+   "depends_on": "eval:!doc.__islocal",
+   "fieldname": "transfer_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transfer Status",
+   "no_copy": 1,
+   "options": "Not Transferred\nPartially Transferred\nFully Transferred\nOver Transferred",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_warehouse",
@@ -92,6 +106,12 @@
    "label": "Notes"
   },
   {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -109,7 +129,13 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Stock Transfer",
+   "link_doctype": "Stock Entry",
+   "link_fieldname": "custom_requisition"
+  }
+ ],
  "modified": "2026-06-03 13:13:16.351687",
  "modified_by": "azmin@pixfar.com",
  "module": "Bsp Engineering",
