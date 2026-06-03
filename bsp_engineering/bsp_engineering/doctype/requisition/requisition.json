@@ -1,6 +1,6 @@
 {
  "actions": [],
- "autoname": "REQ-{DD-MM-YY}-.#####",
+ "autoname": "REQ-.#####",
  "creation": "2026-05-24 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -10,6 +10,7 @@
   "requested_by",
   "section_break_warehouse",
   "source_warehouse",
+  "column_break_nsbt",
   "target_warehouse",
   "section_break_items",
   "items",
@@ -99,14 +100,18 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "column_break_nsbt",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-24 17:51:31.640959",
- "modified_by": "Administrator",
+ "modified": "2026-06-03 13:13:16.351687",
+ "modified_by": "azmin@pixfar.com",
  "module": "Bsp Engineering",
  "name": "Requisition",
  "naming_rule": "Expression",
