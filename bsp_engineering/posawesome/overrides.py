@@ -46,6 +46,48 @@ def _inject_warehouse_into_profile(pos_profile, warehouse):
 	return pos_profile
 
 
+def _sync_payload_warehouse(payload):
+	if not isinstance(payload, dict):
+		return
+	source = payload.get('set_warehouse')
+	if not source:
+		return
+	for row in payload.get('items') or []:
+		row['warehouse'] = source
+	for row in payload.get('packed_items') or []:
+		row['warehouse'] = source
+
+
+def _sync_result_warehouse(result):
+	if not isinstance(result, dict):
+		return result
+	source = result.get('set_warehouse')
+	if not source:
+		return result
+	for row in result.get('items') or []:
+		if row.get('is_stock_item'):
+			row['warehouse'] = source
+	for row in result.get('packed_items') or []:
+		row['warehouse'] = source
+	return result
+
+
+@frappe.whitelist()
+def update_invoice(data):
+	import json
+
+	from posawesome.posawesome.api.invoice_processing.creation import (
+		update_invoice as _update_invoice,
+	)
+
+	payload = json.loads(data) if isinstance(data, str) else (data or {})
+	_sync_payload_warehouse(payload)
+	result = _update_invoice(
+		json.dumps(payload) if isinstance(data, str) else payload
+	)
+	return _sync_result_warehouse(result)
+
+
 @frappe.whitelist()
 def get_items(
 	pos_profile,
@@ -200,3 +242,36 @@ def search_items(search_text=None, limit=20, warehouse=None):
 			}
 		)
 	return results
+
+
+@frappe.whitelist()
+def create_purchase_invoice(data):
+	from posawesome.posawesome.api import purchase_orders as po
+	from posawesome.posawesome.api.utils import _resolve_pos_profile
+
+	payload = json.loads(data) if isinstance(data, str) else (data or {})
+	profile = _resolve_pos_profile(payload.get('pos_profile')) or {}
+	company = (
+		payload.get('company')
+		or profile.get('company')
+		or get_default_company()
+	)
+	warehouse = payload.get('warehouse')
+	if warehouse:
+		validate_warehouse_permission(warehouse, company=company)
+	else:
+		warehouse = resolve_pos_warehouse(
+			company=company,
+			pos_profile=profile,
+		)
+		if warehouse:
+			payload = dict(payload)
+			payload['warehouse'] = warehouse
+
+	if warehouse:
+		payload = dict(payload)
+		payload['warehouse'] = warehouse
+		for row in payload.get('items') or []:
+			row['warehouse'] = warehouse
+
+	return po._create_purchase_invoice_from_pos(payload)

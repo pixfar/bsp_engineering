@@ -185,6 +185,10 @@ doc_events = {
 		),
 	},
 	'Sales Invoice': {
+		'validate': (
+			'bsp_engineering.doc_events.invoice.sync_line_warehouse'
+			'.sync_line_warehouse_from_source'
+		),
 		'on_submit': (
 			'bsp_engineering.doc_events.sales_invoice.create_payment.create_payment_entry_from_sales_invoice'
 		),
@@ -195,7 +199,17 @@ doc_events = {
 			'bsp_engineering.doc_events.sales_invoice.sync_workflow_on_cancel.sync_workflow_state_on_cancel'
 		),
 	},
+	'POS Invoice': {
+		'validate': (
+			'bsp_engineering.doc_events.invoice.sync_line_warehouse'
+			'.sync_line_warehouse_from_source'
+		),
+	},
 	'Purchase Invoice': {
+		'validate': (
+			'bsp_engineering.doc_events.invoice.sync_line_warehouse'
+			'.sync_line_warehouse_from_source'
+		),
 		'on_submit': [
 			'bsp_engineering.doc_events.purchase_invoice.create_payment.create_payment_entry_from_purchase_invoice',
 			'bsp_engineering.doc_events.purchase_invoice.update_delivery_status.update_delivery_status',
@@ -250,6 +264,12 @@ override_whitelisted_methods = {
 	),
 	'posawesome.posawesome.api.utils.get_default_warehouse': (
 		'bsp_engineering.posawesome.overrides.get_default_warehouse'
+	),
+	'posawesome.posawesome.api.purchase_invoices.create_purchase_invoice': (
+		'bsp_engineering.posawesome.overrides.create_purchase_invoice'
+	),
+	'posawesome.posawesome.api.invoice_processing.creation.update_invoice': (
+		'bsp_engineering.posawesome.overrides.update_invoice'
 	),
 }
 #
