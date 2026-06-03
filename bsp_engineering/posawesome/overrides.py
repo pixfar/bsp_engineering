@@ -4,6 +4,7 @@ import frappe
 from frappe.utils import flt
 
 from bsp_engineering.utils.pos_warehouse import (
+	can_change_pos_warehouse,
 	get_default_company,
 	get_permitted_warehouse_names,
 	resolve_pos_warehouse,
@@ -49,6 +50,23 @@ def _inject_warehouse_into_profile(pos_profile, warehouse):
 def _sync_payload_warehouse(payload):
 	if not isinstance(payload, dict):
 		return
+
+	profile = None
+	if payload.get('pos_profile'):
+		profile = _load_pos_profile(payload.get('pos_profile'))
+	company = payload.get('company') or (profile or {}).get('company')
+
+	if not can_change_pos_warehouse():
+		source = resolve_pos_warehouse(company=company, pos_profile=profile)
+		if not source:
+			return
+		payload['set_warehouse'] = source
+		for row in payload.get('items') or []:
+			row['warehouse'] = source
+		for row in payload.get('packed_items') or []:
+			row['warehouse'] = source
+		return
+
 	source = payload.get('set_warehouse')
 	if not source:
 		return
@@ -61,7 +79,18 @@ def _sync_payload_warehouse(payload):
 def _sync_result_warehouse(result):
 	if not isinstance(result, dict):
 		return result
-	source = result.get('set_warehouse')
+
+	if not can_change_pos_warehouse():
+		profile = _load_pos_profile(result.get('pos_profile'))
+		source = resolve_pos_warehouse(
+			company=result.get('company') or profile.get('company'),
+			pos_profile=profile,
+		)
+		if source:
+			result['set_warehouse'] = source
+	else:
+		source = result.get('set_warehouse')
+
 	if not source:
 		return result
 	for row in result.get('items') or []:
@@ -110,6 +139,8 @@ def get_items(
 
 	profile = _load_pos_profile(pos_profile)
 	company = profile.get('company') or get_default_company()
+	if not can_change_pos_warehouse():
+		warehouse = None
 	target = warehouse or profile.get('warehouse')
 	if target:
 		validate_warehouse_permission(target, company=company)
@@ -257,6 +288,8 @@ def create_purchase_invoice(data):
 		or get_default_company()
 	)
 	warehouse = payload.get('warehouse')
+	if not can_change_pos_warehouse():
+		warehouse = None
 	if warehouse:
 		validate_warehouse_permission(warehouse, company=company)
 	else:

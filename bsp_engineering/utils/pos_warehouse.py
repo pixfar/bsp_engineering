@@ -117,6 +117,9 @@ def validate_warehouse_permission(warehouse, company=None):
 
 def resolve_pos_warehouse(warehouse=None, company=None, pos_profile=None):
 	"""Pick warehouse: explicit > POS profile > permitted default."""
+	if not can_change_pos_warehouse():
+		warehouse = None
+
 	if warehouse:
 		validate_warehouse_permission(warehouse, company=company)
 		return warehouse
