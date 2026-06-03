@@ -241,9 +241,17 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "bsp_engineering.event.get_events"
-# }
+override_whitelisted_methods = {
+	'posawesome.posawesome.api.items.get_items': (
+		'bsp_engineering.posawesome.overrides.get_items'
+	),
+	'posawesome.posawesome.api.purchase_invoices.search_items': (
+		'bsp_engineering.posawesome.overrides.search_items'
+	),
+	'posawesome.posawesome.api.utils.get_default_warehouse': (
+		'bsp_engineering.posawesome.overrides.get_default_warehouse'
+	),
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
