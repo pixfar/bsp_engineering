@@ -4,6 +4,7 @@ import frappe
 from barcode import Code128, EAN13
 from barcode.writer import ImageWriter
 from frappe import _
+from frappe.utils import cint
 from frappe.utils.file_manager import save_file
 from stdnum import ean as stdnum_ean
 
@@ -65,6 +66,25 @@ def ensure_auto_barcode(doc, method=None):
     doc.append('barcodes', row)
 
 
+def _coerce_site_max_file_size():
+    """site_config.json may store max_file_size as a string."""
+    raw = frappe.conf.get('max_file_size')
+    if raw is not None and not isinstance(raw, int):
+        frappe.conf.max_file_size = cint(raw)
+
+
+def _save_item_barcode_file(fname, png, item_name):
+    _coerce_site_max_file_size()
+    return save_file(
+        fname,
+        png,
+        'Item',
+        item_name,
+        is_private=0,
+        df='custom_barcode_image',
+    )
+
+
 def _render_barcode_png(code: str) -> bytes:
     buf = BytesIO()
     writer = ImageWriter()
@@ -114,14 +134,7 @@ def sync_item_barcode_image(doc, method=None):
     png = _render_barcode_png(code)
     fname = f'item-barcode-{frappe.generate_hash(length=8)}.png'
     _remove_barcode_image_files(doc.name)
-    file_doc = save_file(
-        fname,
-        png,
-        'Item',
-        doc.name,
-        is_private=0,
-        df='custom_barcode_image',
-    )
+    file_doc = _save_item_barcode_file(fname, png, doc.name)
     frappe.db.set_value(
         'Item',
         doc.name,

@@ -1,8 +1,9 @@
 {
  "actions": [],
  "autoname": "hash",
- "creation": "2026-06-02 00:00:00.000000",
+ "creation": "2026-06-02 00:00:00",
  "doctype": "DocType",
+ "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "warehouse",
@@ -25,11 +26,10 @@
    "reqd": 1
   }
  ],
- "index_web_pages_for_search": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-06-02 00:00:00.000000",
- "modified_by": "Administrator",
+ "modified": "2026-06-03 13:47:13.089090",
+ "modified_by": "azmin@pixfar.com",
  "module": "Bsp Engineering",
  "name": "Item Low Stock Alert",
  "owner": "Administrator",
