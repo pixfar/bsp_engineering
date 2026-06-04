@@ -115,27 +115,46 @@ def validate_warehouse_permission(warehouse, company=None):
 		)
 
 
+def _user_has_warehouse_restrictions(user=None):
+	user = user or frappe.session.user
+	if user == 'Administrator':
+		return False
+	return bool(
+		frappe.db.exists(
+			'User Permission',
+			{'user': user, 'allow': 'Warehouse'},
+		)
+	)
+
+
 def resolve_pos_warehouse(warehouse=None, company=None, pos_profile=None):
-	"""Pick warehouse: explicit > POS profile > permitted default."""
-	if not can_change_pos_warehouse():
+	"""Pick warehouse: explicit > user permission > POS profile > default."""
+	restricted = not can_change_pos_warehouse()
+	if restricted:
 		warehouse = None
 
 	if warehouse:
 		validate_warehouse_permission(warehouse, company=company)
 		return warehouse
 
-	if isinstance(pos_profile, dict) and pos_profile.get('warehouse'):
-		wh = pos_profile.get('warehouse')
-		validate_warehouse_permission(wh, company=company)
-		return wh
-
 	permitted = get_permitted_warehouse_names(company=company)
+	profile_wh = None
+	if isinstance(pos_profile, dict):
+		profile_wh = pos_profile.get('warehouse')
+
+	if restricted and _user_has_warehouse_restrictions() and permitted:
+		if profile_wh and profile_wh in permitted:
+			return profile_wh
+		return permitted[0]
+
+	if profile_wh:
+		validate_warehouse_permission(profile_wh, company=company)
+		return profile_wh
+
 	if not permitted:
 		return None
 
-	if pos_profile and isinstance(pos_profile, dict):
-		profile_wh = pos_profile.get('warehouse')
-		if profile_wh and profile_wh in permitted:
-			return profile_wh
+	if profile_wh and profile_wh in permitted:
+		return profile_wh
 
 	return permitted[0]

@@ -141,7 +141,10 @@ def get_items(
 	company = profile.get('company') or get_default_company()
 	if not can_change_pos_warehouse():
 		warehouse = None
-	target = warehouse or profile.get('warehouse')
+	target = warehouse or resolve_pos_warehouse(
+		company=company,
+		pos_profile=profile,
+	)
 	if target:
 		validate_warehouse_permission(target, company=company)
 		pos_profile = _inject_warehouse_into_profile(pos_profile, target)

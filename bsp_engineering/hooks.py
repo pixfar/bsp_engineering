@@ -34,7 +34,8 @@ fixtures = [
     { "dt": "Property Setter" },
     { "dt": "Client Script" },
     { "dt": "Print Format" },
-	{ "dt": "Workflow" },
+    { "dt": "Workflow State" },
+    { "dt": "Workflow" },
 ]
 
 # Each item in the list will be shown as an app in the apps page
