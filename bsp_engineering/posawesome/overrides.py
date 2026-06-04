@@ -7,6 +7,7 @@ from bsp_engineering.utils.pos_warehouse import (
 	can_change_pos_warehouse,
 	get_default_company,
 	get_permitted_warehouse_names,
+	prepare_pos_profile_for_stock,
 	resolve_pos_warehouse,
 	validate_warehouse_permission,
 )
@@ -28,23 +29,6 @@ def _load_pos_profile(pos_profile=None):
 		return get_active_pos_profile() or {}
 	except Exception:
 		return {}
-
-
-def _inject_warehouse_into_profile(pos_profile, warehouse):
-	if isinstance(pos_profile, str):
-		try:
-			profile = json.loads(pos_profile)
-		except Exception:
-			profile = {}
-		profile['warehouse'] = warehouse
-		return json.dumps(profile)
-
-	if isinstance(pos_profile, dict):
-		profile = dict(pos_profile)
-		profile['warehouse'] = warehouse
-		return profile
-
-	return pos_profile
 
 
 def _sync_payload_warehouse(payload):
@@ -139,20 +123,14 @@ def get_items(
 
 	profile = _load_pos_profile(pos_profile)
 	company = profile.get('company') or get_default_company()
-	if not can_change_pos_warehouse():
-		warehouse = None
-	target = warehouse or resolve_pos_warehouse(
+	prepared_profile, _target = prepare_pos_profile_for_stock(
+		pos_profile,
 		company=company,
-		pos_profile=profile,
+		warehouse=warehouse,
 	)
-	if target:
-		validate_warehouse_permission(
-			target, company=company, pos_profile=profile
-		)
-		pos_profile = _inject_warehouse_into_profile(pos_profile, target)
 
 	return _get_items(
-		pos_profile,
+		prepared_profile,
 		price_list=price_list,
 		item_group=item_group,
 		search_value=search_value,
@@ -164,6 +142,87 @@ def get_items(
 		include_description=include_description,
 		include_image=include_image,
 		item_groups=item_groups,
+	)
+
+
+@frappe.whitelist()
+def get_items_details(
+	pos_profile,
+	items_data,
+	price_list=None,
+	customer=None,
+	warehouse=None,
+):
+	from posawesome.posawesome.api.item_processing.details import (
+		get_items_details as _get_items_details,
+	)
+
+	profile = _load_pos_profile(pos_profile)
+	company = profile.get('company') or get_default_company()
+	prepared_profile, _target = prepare_pos_profile_for_stock(
+		pos_profile,
+		company=company,
+		warehouse=warehouse,
+	)
+
+	return _get_items_details(
+		prepared_profile,
+		items_data,
+		price_list=price_list,
+		customer=customer,
+	)
+
+
+@frappe.whitelist()
+def get_item_detail(item, doc=None, warehouse=None, price_list=None, company=None):
+	from posawesome.posawesome.api.item_processing.details import (
+		get_item_detail as _get_item_detail,
+	)
+
+	profile = {}
+	item_data = json.loads(item) if isinstance(item, str) else (item or {})
+	if item_data.get('pos_profile'):
+		profile = frappe.get_doc(
+			'POS Profile', item_data.get('pos_profile')
+		).as_dict()
+	else:
+		profile = _load_pos_profile(None)
+
+	company = company or profile.get('company') or get_default_company()
+	_prepared, target = prepare_pos_profile_for_stock(
+		profile,
+		company=company,
+		warehouse=warehouse,
+	)
+	if target:
+		warehouse = target
+
+	return _get_item_detail(item, doc, warehouse, price_list, company)
+
+
+@frappe.whitelist()
+def get_delta_items(
+	pos_profile,
+	modified_after=None,
+	price_list=None,
+	customer=None,
+	limit=500,
+):
+	from posawesome.posawesome.api.items import get_delta_items as _get_delta_items
+
+	profile = _load_pos_profile(pos_profile)
+	company = profile.get('company') or get_default_company()
+	prepared_profile, _target = prepare_pos_profile_for_stock(
+		pos_profile,
+		company=company,
+	)
+
+	return _get_delta_items(
+		prepared_profile,
+		modified_after=modified_after,
+		price_list=price_list,
+		customer=customer,
+		limit=limit,
 	)
 
 

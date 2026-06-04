@@ -260,6 +260,15 @@ override_whitelisted_methods = {
 	'posawesome.posawesome.api.items.get_items': (
 		'bsp_engineering.posawesome.overrides.get_items'
 	),
+	'posawesome.posawesome.api.items.get_items_details': (
+		'bsp_engineering.posawesome.overrides.get_items_details'
+	),
+	'posawesome.posawesome.api.items.get_item_detail': (
+		'bsp_engineering.posawesome.overrides.get_item_detail'
+	),
+	'posawesome.posawesome.api.items.get_delta_items': (
+		'bsp_engineering.posawesome.overrides.get_delta_items'
+	),
 	'posawesome.posawesome.api.purchase_invoices.search_items': (
 		'bsp_engineering.posawesome.overrides.search_items'
 	),

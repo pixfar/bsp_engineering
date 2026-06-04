@@ -1,3 +1,5 @@
+import json
+
 import frappe
 
 POS_WAREHOUSE_SWITCH_ROLE = 'System Manager'
@@ -249,6 +251,56 @@ def validate_warehouse_permission(warehouse, company=None, pos_profile=None):
 			),
 			frappe.PermissionError,
 		)
+
+
+def inject_warehouse_into_pos_profile(pos_profile, warehouse):
+	if isinstance(pos_profile, str):
+		try:
+			profile = json.loads(pos_profile)
+		except Exception:
+			profile = {}
+		profile['warehouse'] = warehouse
+		return json.dumps(profile)
+
+	if isinstance(pos_profile, dict):
+		profile = dict(pos_profile)
+		profile['warehouse'] = warehouse
+		return profile
+
+	return pos_profile
+
+
+def prepare_pos_profile_for_stock(pos_profile, company=None, warehouse=None):
+	"""Resolve warehouse permissions and inject into POS profile payload."""
+	profile = {}
+	if isinstance(pos_profile, dict):
+		profile = pos_profile
+	elif isinstance(pos_profile, str) and pos_profile.strip():
+		try:
+			profile = json.loads(pos_profile)
+		except Exception:
+			profile = {}
+
+	if not company:
+		company = profile.get('company') or get_default_company()
+
+	if can_change_pos_warehouse() and warehouse:
+		target = warehouse
+	else:
+		if not can_change_pos_warehouse():
+			warehouse = None
+		target = warehouse or resolve_pos_warehouse(
+			company=company,
+			pos_profile=profile,
+		)
+
+	if not target:
+		return pos_profile, None
+
+	validate_warehouse_permission(
+		target, company=company, pos_profile=profile
+	)
+	return inject_warehouse_into_pos_profile(pos_profile, target), target
 
 
 def resolve_pos_warehouse(warehouse=None, company=None, pos_profile=None):
