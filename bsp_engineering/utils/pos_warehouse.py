@@ -48,6 +48,54 @@ def _query_warehouses(names, company=None, include_groups=False):
 	)
 
 
+def _get_user_permission_warehouses(user=None):
+	user = user or frappe.session.user
+	return frappe.get_all(
+		'User Permission',
+		filters={'user': user, 'allow': 'Warehouse'},
+		fields=['for_value', 'is_default'],
+		order_by='is_default desc, creation asc',
+	)
+
+
+def _resolve_warehouse_name(name, company=None):
+	if not name:
+		return None
+	names = _query_warehouses([name], company=company)
+	if names:
+		return names[0]
+	expanded = _query_warehouses(
+		_expand_warehouse_permission_names([name]),
+		company=company,
+	)
+	return expanded[0] if expanded else None
+
+
+def get_user_default_warehouse(company=None, user=None):
+	"""Return the user's default warehouse from User Permission."""
+	user = user or frappe.session.user
+	if user == 'Administrator':
+		return None
+
+	perms = _get_user_permission_warehouses(user=user)
+	if not perms:
+		return None
+
+	for perm in perms:
+		if not perm.is_default:
+			continue
+		resolved = _resolve_warehouse_name(perm.for_value, company=company)
+		if resolved:
+			return resolved
+
+	for perm in perms:
+		resolved = _resolve_warehouse_name(perm.for_value, company=company)
+		if resolved:
+			return resolved
+
+	return None
+
+
 def get_permitted_warehouse_names(company=None, include_groups=False):
 	"""Return warehouse names the current user may use in POS."""
 	base_filters = {'disabled': 0}
@@ -84,15 +132,24 @@ def get_permitted_warehouse_names(company=None, include_groups=False):
 
 		permitted = get_permitted_documents('Warehouse') or []
 	except Exception:
-		permitted = frappe.get_all(
-			'User Permission',
-			filters={'user': frappe.session.user, 'allow': 'Warehouse'},
-			pluck='for_value',
-		)
+		permitted = [
+			p.for_value
+			for p in _get_user_permission_warehouses()
+			if p.for_value
+		]
 
 	expanded = _expand_warehouse_permission_names(permitted)
 	if not expanded:
 		return []
+
+	if not include_groups:
+		default_wh = get_user_default_warehouse(company=company)
+		if default_wh:
+			others = _query_warehouses(
+				expanded, company=company, include_groups=False
+			)
+			ordered = [default_wh] + [n for n in others if n != default_wh]
+			return ordered
 
 	names = _query_warehouses(
 		expanded, company=company, include_groups=include_groups
@@ -128,7 +185,7 @@ def _user_has_warehouse_restrictions(user=None):
 
 
 def resolve_pos_warehouse(warehouse=None, company=None, pos_profile=None):
-	"""Pick warehouse: explicit > user permission > POS profile > default."""
+	"""Pick warehouse: explicit > user default > POS profile > permitted."""
 	restricted = not can_change_pos_warehouse()
 	if restricted:
 		warehouse = None
@@ -137,24 +194,23 @@ def resolve_pos_warehouse(warehouse=None, company=None, pos_profile=None):
 		validate_warehouse_permission(warehouse, company=company)
 		return warehouse
 
+	if restricted and _user_has_warehouse_restrictions():
+		default_wh = get_user_default_warehouse(company=company)
+		if default_wh:
+			return default_wh
+
 	permitted = get_permitted_warehouse_names(company=company)
 	profile_wh = None
 	if isinstance(pos_profile, dict):
 		profile_wh = pos_profile.get('warehouse')
 
-	if restricted and _user_has_warehouse_restrictions() and permitted:
-		if profile_wh and profile_wh in permitted:
-			return profile_wh
-		return permitted[0]
-
 	if profile_wh:
+		if restricted and profile_wh not in permitted:
+			return permitted[0] if permitted else None
 		validate_warehouse_permission(profile_wh, company=company)
 		return profile_wh
 
 	if not permitted:
 		return None
-
-	if profile_wh and profile_wh in permitted:
-		return profile_wh
 
 	return permitted[0]

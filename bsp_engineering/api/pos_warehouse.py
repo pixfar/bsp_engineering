@@ -36,12 +36,13 @@ def get_pos_warehouses(company=None, pos_profile=None):
 	if not names:
 		return []
 
-	return frappe.get_all(
+	rows = frappe.get_all(
 		'Warehouse',
 		filters={'name': ['in', names]},
 		fields=['name', 'warehouse_name'],
-		order_by='warehouse_name asc',
 	)
+	by_name = {row.name: row for row in rows}
+	return [by_name[name] for name in names if name in by_name]
 
 
 @frappe.whitelist()
