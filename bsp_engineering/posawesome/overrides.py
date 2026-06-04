@@ -344,7 +344,7 @@ def search_items(search_text=None, limit=20, warehouse=None):
 @frappe.whitelist()
 def create_purchase_invoice(data):
 	from posawesome.posawesome.api import purchase_orders as po
-	from posawesome.posawesome.api.utils import _resolve_pos_profile
+	from posawesome.posawesome.api.purchase_orders import _resolve_pos_profile
 
 	payload = json.loads(data) if isinstance(data, str) else (data or {})
 	profile = _resolve_pos_profile(payload.get('pos_profile')) or {}
