@@ -32,7 +32,9 @@ def get_pos_warehouses(company=None, pos_profile=None):
 	if not company:
 		company = get_default_company()
 
-	names = get_permitted_warehouse_names(company=company)
+	profile = pos_profile if isinstance(pos_profile, dict) else None
+
+	names = get_permitted_warehouse_names(company=company, pos_profile=profile)
 	if not names:
 		return []
 

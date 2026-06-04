@@ -266,6 +266,12 @@ override_whitelisted_methods = {
 	'posawesome.posawesome.api.utils.get_default_warehouse': (
 		'bsp_engineering.posawesome.overrides.get_default_warehouse'
 	),
+	'posawesome.posawesome.api.utils.get_active_pos_profile': (
+		'bsp_engineering.posawesome.profile.get_active_pos_profile'
+	),
+	'posawesome.posawesome.api.shifts.check_opening_shift': (
+		'bsp_engineering.posawesome.profile.check_opening_shift'
+	),
 	'posawesome.posawesome.api.purchase_invoices.create_purchase_invoice': (
 		'bsp_engineering.posawesome.overrides.create_purchase_invoice'
 	),

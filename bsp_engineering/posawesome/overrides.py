@@ -23,7 +23,7 @@ def _load_pos_profile(pos_profile=None):
 		except Exception:
 			pass
 	try:
-		from posawesome.posawesome.api.utils import get_active_pos_profile
+		from bsp_engineering.posawesome.profile import get_active_pos_profile
 
 		return get_active_pos_profile() or {}
 	except Exception:
@@ -146,7 +146,9 @@ def get_items(
 		pos_profile=profile,
 	)
 	if target:
-		validate_warehouse_permission(target, company=company)
+		validate_warehouse_permission(
+			target, company=company, pos_profile=profile
+		)
 		pos_profile = _inject_warehouse_into_profile(pos_profile, target)
 
 	return _get_items(
@@ -186,7 +188,7 @@ def get_default_warehouse(company=None, pos_profile=None):
 def search_items(search_text=None, limit=20, warehouse=None):
 	profile = {}
 	try:
-		from posawesome.posawesome.api.utils import get_active_pos_profile
+		from bsp_engineering.posawesome.profile import get_active_pos_profile
 
 		profile = get_active_pos_profile() or {}
 	except Exception:
@@ -199,7 +201,9 @@ def search_items(search_text=None, limit=20, warehouse=None):
 		pos_profile=profile,
 	)
 
-	permitted = set(get_permitted_warehouse_names(company=company))
+	permitted = set(
+		get_permitted_warehouse_names(company=company, pos_profile=profile)
+	)
 	if warehouse and warehouse not in permitted:
 		frappe.throw(
 			frappe._('You do not have permission to use warehouse {0}').format(
@@ -294,7 +298,9 @@ def create_purchase_invoice(data):
 	if not can_change_pos_warehouse():
 		warehouse = None
 	if warehouse:
-		validate_warehouse_permission(warehouse, company=company)
+		validate_warehouse_permission(
+			warehouse, company=company, pos_profile=profile
+		)
 	else:
 		warehouse = resolve_pos_warehouse(
 			company=company,
