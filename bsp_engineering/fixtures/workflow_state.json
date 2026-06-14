@@ -3,7 +3,25 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2026-06-04 00:00:00.000000",
+  "modified": "2026-05-05 13:59:30.651958",
+  "name": "Approve",
+  "style": "",
+  "workflow_state_name": "Approve"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-06-03 13:40:34.791320",
+  "name": "Requisition Reviewing",
+  "style": "Warning",
+  "workflow_state_name": "Requisition Reviewing"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-06-04 00:00:00",
   "name": "Draft",
   "style": "Primary",
   "workflow_state_name": "Draft"
@@ -12,7 +30,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2026-06-04 00:00:00.000000",
+  "modified": "2026-06-04 00:00:00",
   "name": "Pending Review",
   "style": "Warning",
   "workflow_state_name": "Pending Review"
@@ -21,7 +39,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2026-06-04 00:00:00.000000",
+  "modified": "2026-06-04 00:00:00",
   "name": "Approved",
   "style": "Success",
   "workflow_state_name": "Approved"
@@ -30,7 +48,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2026-06-04 00:00:00.000000",
+  "modified": "2026-06-04 00:00:00",
   "name": "Rejected",
   "style": "Danger",
   "workflow_state_name": "Rejected"
@@ -39,7 +57,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2026-06-04 00:00:00.000000",
+  "modified": "2026-06-04 00:00:00",
   "name": "Cancelled",
   "style": "Danger",
   "workflow_state_name": "Cancelled"
@@ -48,7 +66,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2026-06-04 00:00:00.000000",
+  "modified": "2026-06-04 00:00:00",
   "name": "In Transit",
   "style": "Warning",
   "workflow_state_name": "In Transit"
@@ -57,9 +75,36 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2026-06-04 00:00:00.000000",
+  "modified": "2026-06-04 00:00:00",
   "name": "Requisition Received",
   "style": "Success",
   "workflow_state_name": "Requisition Received"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-06-14 00:00:00",
+  "name": "In Production",
+  "style": "Warning",
+  "workflow_state_name": "In Production"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-06-14 00:00:00",
+  "name": "Completed",
+  "style": "Success",
+  "workflow_state_name": "Completed"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "question-sign",
+  "modified": "2026-04-28 19:43:59.604745",
+  "name": "Pending",
+  "style": "",
+  "workflow_state_name": "Pending"
  }
 ]

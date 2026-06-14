@@ -238,6 +238,11 @@ doc_events = {
 			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
 		],
 	},
+	'Production Plan': {
+		'on_update': (
+			'bsp_engineering.doc_events.production_plan.auto_workflow.on_update'
+		),
+	},
 }
 
 # Scheduled Tasks
