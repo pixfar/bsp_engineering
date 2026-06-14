@@ -174,6 +174,9 @@ doctype_list_js = {
 # Hook on document methods and events
 
 doc_events = {
+	'*': {
+		'on_update': 'bsp_engineering.doc_events.auto_submit.auto_submit_after_save',
+	},
 	'Item': {
 		'before_validate': (
 			'bsp_engineering.doc_events.item.auto_barcode.ensure_auto_barcode'
