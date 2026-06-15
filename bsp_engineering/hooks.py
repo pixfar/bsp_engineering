@@ -237,6 +237,9 @@ doc_events = {
 		'on_cancel': [
 			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
 		],
+		'before_workflow_action': (
+			'bsp_engineering.doc_events.stock_entry.workflow_guard.guard_confirm_receipt'
+		),
 	},
 	'Production Plan': {
 		'on_update': (

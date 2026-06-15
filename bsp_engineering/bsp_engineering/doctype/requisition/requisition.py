@@ -27,9 +27,52 @@ class Requisition(Document):
 
 
 @frappe.whitelist()
+def can_create_stock_entry(requisition):
+	"""Return whether the current user may create a Stock Entry for this requisition."""
+	doc = frappe.get_doc('Requisition', requisition)
+	doc.check_permission('read')
+
+	if doc.requested_by == frappe.session.user:
+		return {'can_create': False, 'reason': 'requester'}
+
+	if 'System Manager' in frappe.get_roles():
+		return {'can_create': True}
+
+	if doc.source_warehouse and frappe.db.exists('User Permission', {
+		'user': frappe.session.user,
+		'allow': 'Warehouse',
+		'for_value': doc.source_warehouse,
+	}):
+		return {'can_create': True}
+
+	return {'can_create': False, 'reason': 'no_permission'}
+
+
+@frappe.whitelist()
 def make_stock_entry(requisition):
 	doc = frappe.get_doc('Requisition', requisition)
 	doc.check_permission('read')
+
+	# The person who submitted the requisition cannot fulfil their own request
+	if doc.requested_by == frappe.session.user:
+		frappe.throw(
+			_('You cannot create a Stock Entry for your own Requisition.'),
+			title=_('Not Allowed'),
+		)
+
+	# Only System Manager or a user with permission on the Source Warehouse may create
+	if 'System Manager' not in frappe.get_roles():
+		if not doc.source_warehouse or not frappe.db.exists('User Permission', {
+			'user': frappe.session.user,
+			'allow': 'Warehouse',
+			'for_value': doc.source_warehouse,
+		}):
+			frappe.throw(
+				_('You need permission on the Source Warehouse ({0}) to create a Stock Entry.').format(
+					doc.source_warehouse or _('not set')
+				),
+				title=_('No Warehouse Permission'),
+			)
 
 	if doc.docstatus != 1:
 		frappe.throw(

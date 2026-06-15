@@ -111,17 +111,22 @@ function toggle_transfer_status_visibility(frm) {
 }
 
 function setup_transfer_stock_button(frm) {
-	if (frm.is_new() || frm.doc.docstatus !== 1) {
-		return;
-	}
-	if (frm.doc.transfer_status === 'Fully Transferred') {
-		return;
-	}
-	frm.add_custom_button(
-		__('Transfer Stock'),
-		() => create_stock_entry_from_requisition(frm),
-		__('Create')
-	);
+	if (frm.is_new() || frm.doc.docstatus !== 1) return;
+	if (frm.doc.transfer_status === 'Fully Transferred') return;
+
+	frappe.call({
+		method: 'bsp_engineering.bsp_engineering.doctype.requisition.requisition.can_create_stock_entry',
+		args: { requisition: frm.doc.name },
+		callback(r) {
+			if (r.message && r.message.can_create) {
+				frm.add_custom_button(
+					__('Transfer Stock'),
+					() => create_stock_entry_from_requisition(frm),
+					__('Create')
+				);
+			}
+		},
+	});
 }
 
 function create_stock_entry_from_requisition(frm) {
