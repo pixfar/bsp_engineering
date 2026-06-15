@@ -13,4 +13,11 @@ def auto_submit_after_save(doc, method):
 	if frappe.db.exists('Workflow', {'document_type': doc.doctype, 'is_active': 1}):
 		return
 
+	# Frappe's insert() sets __islocal=True at the start and only deletes it AFTER
+	# run_post_save_methods() completes. Since on_update fires inside run_post_save_methods,
+	# calling submit() → save() → _save() here would see __islocal=True and try a second
+	# insert(), hitting a DuplicateEntryError. Clear it first so _save() takes the UPDATE path.
+	if hasattr(doc, '__islocal'):
+		delattr(doc, '__islocal')
+
 	doc.submit()

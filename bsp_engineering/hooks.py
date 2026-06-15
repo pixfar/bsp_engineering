@@ -242,6 +242,9 @@ doc_events = {
 		'on_update': (
 			'bsp_engineering.doc_events.production_plan.auto_workflow.on_update'
 		),
+		'on_submit': (
+			'bsp_engineering.doc_events.production_plan.auto_workflow.on_submit'
+		),
 	},
 }
 
