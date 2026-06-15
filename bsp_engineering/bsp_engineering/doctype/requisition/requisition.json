@@ -57,7 +57,7 @@
    "in_standard_filter": 1,
    "label": "Transfer Status",
    "no_copy": 1,
-   "options": "Not Transferred\nPartially Transferred\nFully Transferred\nOver Transferred",
+   "options": "Not Transferred\nIn Transit\nPartially Transferred\nFully Transferred\nOver Transferred",
    "read_only": 1
   },
   {

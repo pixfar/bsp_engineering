@@ -231,6 +231,9 @@ doc_events = {
 	# 	),
 	# },
 	'Stock Entry': {
+		'after_insert': [
+			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
+		],
 		'on_submit': [
 			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
 		],

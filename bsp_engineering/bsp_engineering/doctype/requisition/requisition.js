@@ -6,6 +6,7 @@ frappe.ui.form.on('Requisition', {
 		toggle_transfer_status_visibility(frm);
 		sync_item_code_query(frm);
 		setup_transfer_stock_button(frm);
+		setup_confirm_receipt_button(frm);
 		set_transfer_status_indicator(frm);
 	},
 });
@@ -146,18 +147,139 @@ function create_stock_entry_from_requisition(frm) {
 	});
 }
 
+function setup_confirm_receipt_button(frm) {
+	if (frm.is_new() || frm.doc.docstatus !== 1) return;
+	if (frm.doc.transfer_status !== 'In Transit') return;
+	if (frappe.session.user !== frm.doc.requested_by) return;
+
+	frm.add_custom_button(__('Confirm Receipt'), () => {
+		frappe.call({
+			method: 'bsp_engineering.bsp_engineering.doctype.requisition.requisition.get_in_transit_se_items',
+			args: { requisition: frm.doc.name },
+			callback(r) {
+				if (r.exc || !r.message) return;
+				show_receipt_dialog(frm, r.message);
+			},
+		});
+	}).addClass('btn-primary');
+}
+
+function show_receipt_dialog(frm, se_data) {
+	const { items } = se_data;
+
+	const rows_html = items.map(item => `
+		<tr>
+			<td style="vertical-align:middle; padding:6px 8px;">${item.item_code}</td>
+			<td style="vertical-align:middle; padding:6px 8px;">${item.item_name || ''}</td>
+			<td style="vertical-align:middle; text-align:right; padding:6px 8px; white-space:nowrap;">
+				${item.qty} ${item.uom || ''}
+			</td>
+			<td style="padding:4px 8px;">
+				<input
+					type="number"
+					class="form-control received-qty-input"
+					data-item-name="${item.name}"
+					data-max-qty="${item.qty}"
+					value="${item.qty}"
+					min="0"
+					max="${item.qty}"
+					step="any"
+					style="text-align:right; min-width:80px;"
+				>
+			</td>
+		</tr>
+	`).join('');
+
+	const dialog = new frappe.ui.Dialog({
+		title: __('Confirm Receipt'),
+		fields: [{
+			fieldtype: 'HTML',
+			fieldname: 'items_table',
+			options: `
+				<p style="font-size:12px; color:#6b7280; margin-bottom:10px;">
+					${__('Reduce the Received Qty if any items were damaged or missing. Items set to 0 will be excluded.')}
+				</p>
+				<table class="table table-bordered table-sm" style="margin:0; font-size:13px;">
+					<thead style="background:#f3f4f6;">
+						<tr>
+							<th style="padding:6px 8px;">${__('Item Code')}</th>
+							<th style="padding:6px 8px;">${__('Item Name')}</th>
+							<th style="padding:6px 8px; text-align:right;">${__('Sent Qty')}</th>
+							<th style="padding:6px 8px;">${__('Received Qty')}</th>
+						</tr>
+					</thead>
+					<tbody>${rows_html}</tbody>
+				</table>
+			`,
+		}],
+		primary_action_label: __('Confirm Receipt'),
+		primary_action() {
+			const received_quantities = {};
+			let valid = true;
+
+			dialog.$wrapper.find('.received-qty-input').each(function () {
+				const $inp = $(this);
+				const item_name = $inp.data('item-name');
+				const max_qty = parseFloat($inp.data('max-qty'));
+				const qty = parseFloat($inp.val());
+
+				if (isNaN(qty) || qty < 0) {
+					frappe.msgprint(__('Received quantity cannot be negative.'));
+					valid = false;
+					return false;
+				}
+				if (qty > max_qty) {
+					frappe.msgprint(
+						__('Received quantity cannot exceed sent quantity ({0}).').replace('{0}', max_qty)
+					);
+					valid = false;
+					return false;
+				}
+				received_quantities[item_name] = qty;
+			});
+
+			if (!valid) return;
+
+			frappe.call({
+				method: 'bsp_engineering.bsp_engineering.doctype.requisition.requisition.confirm_receipt_from_requisition',
+				args: {
+					requisition: frm.doc.name,
+					received_quantities: JSON.stringify(received_quantities),
+				},
+				freeze: true,
+				freeze_message: __('Confirming receipt...'),
+				callback(r) {
+					if (!r.exc) {
+						dialog.hide();
+						frm.reload_doc();
+					}
+				},
+			});
+		},
+	});
+
+	dialog.show();
+}
+
 function set_transfer_status_indicator(frm) {
-	if (frm.is_new() || !frm.doc.transfer_status) {
+	if (frm.is_new()) return;
+
+	if (frm.doc.docstatus === 2) {
+		frm.page.set_indicator(__('Cancelled'), 'red');
 		return;
 	}
+
+	if (!frm.doc.transfer_status) return;
+
 	const colors = {
 		'Not Transferred': 'orange',
+		'In Transit': 'blue',
 		'Partially Transferred': 'yellow',
 		'Fully Transferred': 'green',
 		'Over Transferred': 'red',
 	};
 	frm.page.set_indicator(
-		frm.doc.transfer_status,
+		__(frm.doc.transfer_status),
 		colors[frm.doc.transfer_status] || 'blue'
 	);
 }

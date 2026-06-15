@@ -131,6 +131,22 @@
     "update_field": null,
     "update_value": null,
     "workflow_builder_id": null
+   },
+   {
+    "allow_edit": "Stock User",
+    "avoid_status_override": 0,
+    "doc_status": "2",
+    "is_optional_state": 0,
+    "message": null,
+    "next_action_email_template": null,
+    "parent": "BSP Material Transfer Receipt",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 0,
+    "state": "Cancelled",
+    "update_field": null,
+    "update_value": null,
+    "workflow_builder_id": null
    }
   ],
   "transitions": [

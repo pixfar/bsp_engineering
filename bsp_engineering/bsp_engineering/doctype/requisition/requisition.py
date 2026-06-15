@@ -25,6 +25,21 @@ class Requisition(Document):
 		if self.docstatus == 1:
 			self.transfer_status = calculate_transfer_status(self)
 
+	def before_cancel(self):
+		active_ses = frappe.get_all(
+			'Stock Entry',
+			filters={'custom_requisition': self.name, 'docstatus': ['!=', 2]},
+			fields=['name', 'docstatus'],
+		)
+		if not active_ses:
+			return
+		names_html = ', '.join(frappe.bold(se.name) for se in active_ses)
+		frappe.throw(
+			_('The following Stock Entries must be cancelled or deleted before cancelling'
+			  ' this Requisition: {0}').format(names_html),
+			title=_('Active Stock Entries Exist'),
+		)
+
 
 @frappe.whitelist()
 def can_create_stock_entry(requisition):
@@ -140,6 +155,108 @@ def make_stock_entry(requisition):
 
 	stock_entry.set_stock_entry_type()
 	return stock_entry.as_dict()
+
+
+def _get_in_transit_se_name(requisition):
+	return frappe.db.get_value('Stock Entry', {
+		'custom_requisition': requisition,
+		'workflow_state': 'In Transit',
+		'docstatus': ['!=', 2],
+	}, 'name')
+
+
+@frappe.whitelist()
+def get_in_transit_se_items(requisition):
+	"""Return the In Transit SE name and its items so the client can render the receipt dialog."""
+	doc = frappe.get_doc('Requisition', requisition)
+	doc.check_permission('read')
+
+	se_name = _get_in_transit_se_name(requisition)
+	if not se_name:
+		frappe.throw(_('No In Transit Stock Entry found for this Requisition.'), title=_('Nothing to Confirm'))
+
+	se = frappe.get_doc('Stock Entry', se_name)
+	items = [
+		{
+			'name': item.name,
+			'item_code': item.item_code,
+			'item_name': item.item_name,
+			'qty': item.qty,
+			'uom': item.uom,
+			'stock_uom': item.stock_uom,
+			'conversion_factor': flt(item.conversion_factor) or 1,
+		}
+		for item in se.items
+	]
+	return {'se_name': se_name, 'items': items}
+
+
+@frappe.whitelist()
+def confirm_receipt_from_requisition(requisition, received_quantities=None):
+	"""Apply 'Confirm Receipt' on the In Transit SE. Only the original requester may call this.
+	received_quantities: JSON string mapping SE item name → received qty (allows partial receipt)."""
+	doc = frappe.get_doc('Requisition', requisition)
+	doc.check_permission('read')
+
+	if frappe.session.user != doc.requested_by:
+		frappe.throw(
+			_('Only {0} (the person who submitted this Requisition) can confirm receipt.').format(
+				frappe.bold(doc.requested_by)
+			),
+			title=_('Not Allowed'),
+			exc=frappe.PermissionError,
+		)
+
+	se_name = _get_in_transit_se_name(requisition)
+	if not se_name:
+		frappe.throw(_('No In Transit Stock Entry found for this Requisition.'), title=_('Nothing to Confirm'))
+
+	se = frappe.get_doc('Stock Entry', se_name)
+
+	if received_quantities:
+		import json
+		if isinstance(received_quantities, str):
+			received_quantities = json.loads(received_quantities)
+
+		for item in se.items:
+			if item.name not in received_quantities:
+				continue
+			new_qty = flt(received_quantities[item.name])
+			if new_qty < 0:
+				frappe.throw(_('Received quantity cannot be negative for item {0}.').format(item.item_code))
+			if new_qty > flt(item.qty):
+				frappe.throw(
+					_('Received quantity ({0}) cannot exceed sent quantity ({1}) for item {2}.').format(
+						new_qty, item.qty, item.item_code
+					)
+				)
+			item.qty = new_qty
+			item.transfer_qty = new_qty * (flt(item.conversion_factor) or 1)
+
+		# Drop items where receiver confirmed 0
+		se.items = [item for item in se.items if flt(item.qty) > 0]
+
+		if not se.items:
+			frappe.throw(
+				_('All received quantities are zero. Enter at least one positive quantity.'),
+				title=_('Nothing to Confirm'),
+			)
+
+		se.flags.ignore_permissions = True
+		se.save()
+
+	# Submit the SE, bypassing the workflow role check (requester is already validated above).
+	# Mirrors the pattern used in the Production Plan auto-workflow.
+	se.reload()
+	se.flags.ignore_permissions = True
+	se.flags.ignore_workflow = True
+	se.submit()
+	frappe.db.set_value(
+		'Stock Entry', se.name, 'workflow_state', 'Requisition Received', update_modified=False
+	)
+
+	update_requisition_transfer_status(requisition)
+	return frappe.db.get_value('Requisition', requisition, 'transfer_status')
 
 
 @frappe.whitelist()

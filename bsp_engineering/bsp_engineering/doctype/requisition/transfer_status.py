@@ -2,6 +2,7 @@ import frappe
 from frappe.utils import flt
 
 STATUS_NOT = 'Not Transferred'
+STATUS_IN_TRANSIT = 'In Transit'
 STATUS_PARTIAL = 'Partially Transferred'
 STATUS_FULL = 'Fully Transferred'
 STATUS_OVER = 'Over Transferred'
@@ -46,6 +47,17 @@ def get_transferred_by_item(requisition_name):
 	return {row.custom_requisition_item: flt(row.qty) for row in rows}
 
 
+def has_in_transit_stock_entry(requisition_name):
+	"""Return True if there is a linked SE in workflow_state='In Transit' not yet confirmed."""
+	if not frappe.db.has_column('Stock Entry', 'custom_requisition'):
+		return False
+	return frappe.db.exists('Stock Entry', {
+		'custom_requisition': requisition_name,
+		'workflow_state': 'In Transit',
+		'docstatus': ['!=', 2],
+	})
+
+
 def calculate_transfer_status(requisition_doc):
 	if requisition_doc.docstatus != 1:
 		return STATUS_NOT
@@ -55,13 +67,20 @@ def calculate_transfer_status(requisition_doc):
 
 	if not requested:
 		return STATUS_NOT
-	if transferred <= 0:
-		return STATUS_NOT
-	if transferred == requested:
-		return STATUS_FULL
-	if transferred < requested:
-		return STATUS_PARTIAL
-	return STATUS_OVER
+
+	# Stock confirmed-received (docstatus=1) takes precedence
+	if transferred > 0:
+		if transferred == requested:
+			return STATUS_FULL
+		if transferred < requested:
+			return STATUS_PARTIAL
+		return STATUS_OVER
+
+	# No confirmed receipts yet — check for pending in-transit SE
+	if has_in_transit_stock_entry(requisition_doc.name):
+		return STATUS_IN_TRANSIT
+
+	return STATUS_NOT
 
 
 def update_requisition_transfer_status(requisition_name):
