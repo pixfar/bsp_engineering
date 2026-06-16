@@ -98,9 +98,9 @@ function set_status_indicator(frm) {
 		return;
 	}
 	const colors = {
-		'Pending':  'orange',
-		'Accepted': 'blue',
-		'Received': 'green',
+		'Pending':    'orange',
+		'In Transit': 'blue',
+		'Received':   'green',
 	};
 	const status = frm.doc.transfer_status;
 	if (status) frm.page.set_indicator(__(status), colors[status] || 'blue');
@@ -118,18 +118,36 @@ function setup_action_buttons(frm) {
 		callback(r) {
 			if (!r.message || !r.message.can_action) return;
 
+			// Accept Transfer: only while goods haven't been dispatched yet
 			if (frm.doc.transfer_status === 'Pending') {
 				frm.add_custom_button(__('Accept Transfer'), () => {
 					frappe.confirm(
-						__('Accept this Material Transfer from {0}?', [frm.doc.from_warehouse]),
+						__('Accept and dispatch this transfer from {0} to {1}?', [
+							frm.doc.from_warehouse,
+							frm.doc.to_warehouse,
+						]),
 						() => call_accept(frm)
 					);
 				}).addClass('btn-warning');
 			}
 
-			if (['Pending', 'Accepted'].includes(frm.doc.transfer_status)) {
+			// Confirm Receipt: only once goods are In Transit (SE submitted)
+			if (frm.doc.transfer_status === 'In Transit') {
 				frm.add_custom_button(__('Confirm Receipt'), () => {
-					open_receipt_dialog(frm);
+					frappe.confirm(
+						__('Confirm receipt of all items for this transfer?'),
+						() => {
+							frappe.call({
+								method: 'bsp_engineering.bsp_engineering.doctype.material_transfer.material_transfer.confirm_receipt',
+								args: { transfer: frm.doc.name },
+								freeze: true,
+								freeze_message: __('Confirming receipt...'),
+								callback(r) {
+									if (!r.exc) frm.reload_doc();
+								},
+							});
+						}
+					);
 				}).addClass('btn-primary');
 			}
 		},
@@ -148,110 +166,4 @@ function call_accept(frm) {
 	});
 }
 
-function open_receipt_dialog(frm) {
-	frappe.call({
-		method: 'bsp_engineering.bsp_engineering.doctype.material_transfer.material_transfer.get_stock_entry_items',
-		args: { transfer: frm.doc.name },
-		callback(r) {
-			if (r.exc || !r.message) return;
-			show_receipt_dialog(frm, r.message);
-		},
-	});
-}
 
-function show_receipt_dialog(frm, se_data) {
-	const { items } = se_data;
-
-	const rows_html = items.map(item => `
-		<tr>
-			<td style="vertical-align:middle; padding:6px 8px;">${item.item_code}</td>
-			<td style="vertical-align:middle; padding:6px 8px;">${item.item_name || ''}</td>
-			<td style="vertical-align:middle; text-align:right; padding:6px 8px; white-space:nowrap;">
-				${item.qty} ${item.uom || ''}
-			</td>
-			<td style="padding:4px 8px;">
-				<input
-					type="number"
-					class="form-control received-qty-input"
-					data-item-name="${item.name}"
-					data-max-qty="${item.qty}"
-					value="${item.qty}"
-					min="0"
-					max="${item.qty}"
-					step="any"
-					style="text-align:right; min-width:80px;"
-				>
-			</td>
-		</tr>
-	`).join('');
-
-	const dialog = new frappe.ui.Dialog({
-		title: __('Confirm Receipt'),
-		fields: [{
-			fieldtype: 'HTML',
-			fieldname: 'items_table',
-			options: `
-				<p style="font-size:12px; color:#6b7280; margin-bottom:10px;">
-					${__('Adjust the Received Qty if any items were short or damaged. Items set to 0 are excluded.')}
-				</p>
-				<table class="table table-bordered table-sm" style="margin:0; font-size:13px;">
-					<thead style="background:#f3f4f6;">
-						<tr>
-							<th style="padding:6px 8px;">${__('Item Code')}</th>
-							<th style="padding:6px 8px;">${__('Item Name')}</th>
-							<th style="padding:6px 8px; text-align:right;">${__('Sent Qty')}</th>
-							<th style="padding:6px 8px;">${__('Received Qty')}</th>
-						</tr>
-					</thead>
-					<tbody>${rows_html}</tbody>
-				</table>
-			`,
-		}],
-		primary_action_label: __('Confirm Receipt'),
-		primary_action() {
-			const received_quantities = {};
-			let valid = true;
-
-			dialog.$wrapper.find('.received-qty-input').each(function () {
-				const $inp = $(this);
-				const item_name = $inp.data('item-name');
-				const max_qty = parseFloat($inp.data('max-qty'));
-				const qty = parseFloat($inp.val());
-
-				if (isNaN(qty) || qty < 0) {
-					frappe.msgprint(__('Received quantity cannot be negative.'));
-					valid = false;
-					return false;
-				}
-				if (qty > max_qty) {
-					frappe.msgprint(
-						__('Received qty cannot exceed sent qty ({0}).').replace('{0}', max_qty)
-					);
-					valid = false;
-					return false;
-				}
-				received_quantities[item_name] = qty;
-			});
-
-			if (!valid) return;
-
-			frappe.call({
-				method: 'bsp_engineering.bsp_engineering.doctype.material_transfer.material_transfer.confirm_receipt',
-				args: {
-					transfer: frm.doc.name,
-					received_quantities: JSON.stringify(received_quantities),
-				},
-				freeze: true,
-				freeze_message: __('Confirming receipt...'),
-				callback(r) {
-					if (!r.exc) {
-						dialog.hide();
-						frm.reload_doc();
-					}
-				},
-			});
-		},
-	});
-
-	dialog.show();
-}
