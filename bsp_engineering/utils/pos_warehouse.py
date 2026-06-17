@@ -170,7 +170,7 @@ def get_permitted_warehouse_names(
 	if company:
 		base_filters['company'] = company
 
-	if frappe.session.user == 'Administrator':
+	if frappe.session.user == 'Administrator' or can_change_pos_warehouse():
 		return frappe.get_all(
 			'Warehouse',
 			filters=base_filters,

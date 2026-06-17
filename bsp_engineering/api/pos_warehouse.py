@@ -4,6 +4,7 @@ from bsp_engineering.utils.pos_warehouse import (
 	can_change_pos_warehouse,
 	get_default_company,
 	get_permitted_warehouse_names,
+	get_user_default_warehouse,
 	resolve_pos_warehouse,
 )
 
@@ -34,17 +35,27 @@ def get_pos_warehouses(company=None, pos_profile=None):
 
 	profile = pos_profile if isinstance(pos_profile, dict) else None
 
-	names = get_permitted_warehouse_names(company=company, pos_profile=profile)
-	if not names:
-		return []
+	# System Managers see ALL POS-enabled warehouses, not limited by User Permission rows
+	filters = {'disabled': 0, 'is_group': 0, 'custom_show_on_pos': 1}
+	if company:
+		filters['company'] = company
 
-	rows = frappe.get_all(
+	warehouses = frappe.get_all(
 		'Warehouse',
-		filters={'name': ['in', names]},
+		filters=filters,
 		fields=['name', 'warehouse_name'],
+		order_by='warehouse_name asc, name asc',
 	)
-	by_name = {row.name: row for row in rows}
-	return [by_name[name] for name in names if name in by_name]
+
+	# Default: User Permission default warehouse first, fall back to POS profile warehouse
+	default_wh = get_user_default_warehouse(company=company)
+	if not default_wh and profile:
+		default_wh = profile.get('warehouse')
+
+	return {
+		'warehouses': warehouses,
+		'default_warehouse': default_wh,
+	}
 
 
 @frappe.whitelist()
