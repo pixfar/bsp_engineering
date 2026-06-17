@@ -8,6 +8,16 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from posawesome.posawesome.utils.warehouse_doc_permissions import (
+	ensure_warehouse_doc_read_access,
+	get_expanded_permitted_warehouses,
+	is_system_manager,
+)
+
+STATUS_IN_TRANSIT = 'In Transit'
+STATUS_PARTIAL = 'Partially Received'
+STATUS_FULL = 'Fully Received'
+
 
 class MaterialTransfer(Document):
 	def before_insert(self):
@@ -22,8 +32,8 @@ class MaterialTransfer(Document):
 				)
 
 	def on_submit(self):
-		self.db_set('transfer_status', 'Pending', update_modified=False)
 		self._create_stock_entry()
+		self._dispatch_stock_entry()
 
 	def before_cancel(self):
 		if not self.stock_entry:
@@ -83,23 +93,58 @@ class MaterialTransfer(Document):
 		se.insert(ignore_permissions=True)
 		self.db_set('stock_entry', se.name, update_modified=False)
 
+	def _dispatch_stock_entry(self):
+		if not self.stock_entry:
+			return
+
+		se = frappe.get_doc('Stock Entry', self.stock_entry)
+		if se.docstatus != 0:
+			return
+
+		se.flags.ignore_permissions = True
+		se.flags.ignore_workflow = True
+		se.submit()
+		frappe.db.set_value(
+			'Stock Entry',
+			se.name,
+			'workflow_state',
+			STATUS_IN_TRANSIT,
+			update_modified=False,
+		)
+		self.db_set('transfer_status', STATUS_IN_TRANSIT, update_modified=False)
+
+
+def _calculate_receipt_status(doc):
+	if not doc.items:
+		return STATUS_FULL
+
+	any_received = False
+	fully_received = True
+	for row in doc.items:
+		received = flt(row.received_qty)
+		requested = flt(row.qty)
+		if received > 0:
+			any_received = True
+		if received < requested:
+			fully_received = False
+
+	if not any_received:
+		return STATUS_IN_TRANSIT
+	return STATUS_FULL if fully_received else STATUS_PARTIAL
+
 
 def _check_target_warehouse_permission(doc):
-	"""Raise if the current user cannot accept/receive this transfer."""
+	if is_system_manager():
+		return
+
 	if frappe.session.user == doc.requested_by:
 		frappe.throw(
-			_('You cannot accept or receive your own Material Transfer request.'),
+			_('You cannot receive your own Material Transfer request.'),
 			title=_('Not Allowed'),
 		)
 
-	if 'System Manager' in frappe.get_roles():
-		return
-
-	if doc.to_warehouse and frappe.db.exists('User Permission', {
-		'user': frappe.session.user,
-		'allow': 'Warehouse',
-		'for_value': doc.to_warehouse,
-	}):
+	warehouses = get_expanded_permitted_warehouses() or []
+	if doc.to_warehouse and doc.to_warehouse in warehouses:
 		return
 
 	frappe.throw(
@@ -113,60 +158,28 @@ def _check_target_warehouse_permission(doc):
 
 @frappe.whitelist()
 def can_action(transfer):
-	"""Return whether the current user may accept/receive this transfer."""
+	"""Return whether the current user may confirm receipt for this transfer."""
 	doc = frappe.get_doc('Material Transfer', transfer)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'from_warehouse', 'to_warehouse')
 
 	if doc.requested_by == frappe.session.user:
 		return {'can_action': False, 'reason': 'requester'}
 
-	if 'System Manager' in frappe.get_roles():
+	if is_system_manager():
 		return {'can_action': True}
 
-	if doc.to_warehouse and frappe.db.exists('User Permission', {
-		'user': frappe.session.user,
-		'allow': 'Warehouse',
-		'for_value': doc.to_warehouse,
-	}):
+	warehouses = get_expanded_permitted_warehouses() or []
+	if doc.to_warehouse and doc.to_warehouse in warehouses:
 		return {'can_action': True}
 
 	return {'can_action': False, 'reason': 'no_permission'}
 
 
 @frappe.whitelist()
-def accept_transfer(transfer):
-	"""Accept and dispatch the transfer. Submits the SE so stock moves In Transit.
-	Only target-warehouse permission holders (not the requester) may do this."""
-	doc = frappe.get_doc('Material Transfer', transfer)
-	doc.check_permission('read')
-
-	if doc.docstatus != 1:
-		frappe.throw(_('Submit the Material Transfer before accepting.'))
-	if doc.transfer_status != 'Pending':
-		frappe.throw(_('Transfer cannot be accepted — current status: {0}.').format(doc.transfer_status))
-	if not doc.stock_entry:
-		frappe.throw(_('No Stock Entry linked to this Material Transfer.'))
-
-	_check_target_warehouse_permission(doc)
-
-	se = frappe.get_doc('Stock Entry', doc.stock_entry)
-	if se.docstatus != 0:
-		frappe.throw(_('Stock Entry is not in Draft state — it may already be in transit.'))
-
-	# Submit the SE, bypassing the workflow so we control the state manually
-	se.flags.ignore_permissions = True
-	se.flags.ignore_workflow = True
-	se.submit()
-	frappe.db.set_value('Stock Entry', se.name, 'workflow_state', 'In Transit', update_modified=False)
-
-	doc.db_set('transfer_status', 'In Transit', update_modified=False)
-
-
-@frappe.whitelist()
 def get_stock_entry_items(transfer):
 	"""Return In-Transit SE items so the client can render the receipt dialog."""
 	doc = frappe.get_doc('Material Transfer', transfer)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'from_warehouse', 'to_warehouse')
 
 	if not doc.stock_entry:
 		frappe.throw(_('No Stock Entry found for this Material Transfer.'), title=_('Nothing to Receive'))
@@ -176,7 +189,7 @@ def get_stock_entry_items(transfer):
 		frappe.throw(_('Stock Entry has been cancelled.'), title=_('Cannot Receive'))
 	if se.docstatus == 0:
 		frappe.throw(
-			_('Accept the transfer first — goods have not been dispatched yet.'),
+			_('Goods have not been dispatched yet.'),
 			title=_('Not In Transit'),
 		)
 
@@ -197,16 +210,16 @@ def get_stock_entry_items(transfer):
 
 @frappe.whitelist()
 def confirm_receipt(transfer, received_quantities=None):
-	"""Confirm receipt with actual quantities. Mirrors Requisition's confirm_receipt_from_requisition.
+	"""Confirm receipt with actual quantities.
 	Only target-warehouse permission holders (not the requester) may do this."""
 	doc = frappe.get_doc('Material Transfer', transfer)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'from_warehouse', 'to_warehouse')
 
 	if doc.docstatus != 1:
 		frappe.throw(_('Material Transfer must be submitted.'))
-	if doc.transfer_status != 'In Transit':
+	if doc.transfer_status != STATUS_IN_TRANSIT:
 		frappe.throw(
-			_('Accept the transfer before confirming receipt — current status: {0}.').format(
+			_('Receipt can only be confirmed while goods are in transit — current status: {0}.').format(
 				doc.transfer_status
 			)
 		)
@@ -216,8 +229,8 @@ def confirm_receipt(transfer, received_quantities=None):
 	_check_target_warehouse_permission(doc)
 
 	se = frappe.get_doc('Stock Entry', doc.stock_entry)
-	if se.docstatus != 1:
-		frappe.throw(_('Accept the transfer first — Stock Entry is not in transit.'))
+	if se.docstatus not in (0, 1):
+		frappe.throw(_('Goods are not in transit yet.'))
 
 	if received_quantities:
 		if isinstance(received_quantities, str):
@@ -247,14 +260,19 @@ def confirm_receipt(transfer, received_quantities=None):
 		se.flags.ignore_permissions = True
 		se.save()
 
-	# Re-submit to trigger on_submit hooks (mirrors Requisition pattern), then stamp state
 	se.reload()
 	se.flags.ignore_permissions = True
 	se.flags.ignore_workflow = True
-	se.submit()
-	frappe.db.set_value('Stock Entry', se.name, 'workflow_state', 'Requisition Received', update_modified=False)
+	if se.docstatus == 0:
+		se.submit()
+	frappe.db.set_value(
+		'Stock Entry',
+		se.name,
+		'workflow_state',
+		'Requisition Received',
+		update_modified=False,
+	)
 
-	# Write back received_qty to Material Transfer items
 	mt_item_by_name = {row.name: row for row in doc.items}
 	for se_item in se.items:
 		mt_item_name = getattr(se_item, 'custom_material_transfer_item', None)
@@ -267,4 +285,7 @@ def confirm_receipt(transfer, received_quantities=None):
 				update_modified=False,
 			)
 
-	doc.db_set('transfer_status', 'Received', update_modified=False)
+	doc.reload()
+	status = _calculate_receipt_status(doc)
+	doc.db_set('transfer_status', status, update_modified=False)
+	return status

@@ -46,7 +46,7 @@
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Transfer Status",
-   "options": "\nPending\nIn Transit\nReceived",
+   "options": "\nIn Transit\nPartially Received\nFully Received",
    "read_only": 1
   },
   {

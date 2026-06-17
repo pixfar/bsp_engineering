@@ -12,6 +12,11 @@ from bsp_engineering.bsp_engineering.doctype.requisition.transfer_status import 
 	get_transferred_by_item,
 	update_requisition_transfer_status,
 )
+from posawesome.posawesome.utils.warehouse_doc_permissions import (
+	ensure_warehouse_doc_read_access,
+	get_expanded_permitted_warehouses,
+	is_system_manager,
+)
 
 
 class Requisition(Document):
@@ -45,19 +50,16 @@ class Requisition(Document):
 def can_create_stock_entry(requisition):
 	"""Return whether the current user may create a Stock Entry for this requisition."""
 	doc = frappe.get_doc('Requisition', requisition)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'source_warehouse', 'target_warehouse')
 
 	if doc.requested_by == frappe.session.user:
 		return {'can_create': False, 'reason': 'requester'}
 
-	if 'System Manager' in frappe.get_roles():
+	if is_system_manager():
 		return {'can_create': True}
 
-	if doc.source_warehouse and frappe.db.exists('User Permission', {
-		'user': frappe.session.user,
-		'allow': 'Warehouse',
-		'for_value': doc.source_warehouse,
-	}):
+	warehouses = get_expanded_permitted_warehouses() or []
+	if doc.source_warehouse and doc.source_warehouse in warehouses:
 		return {'can_create': True}
 
 	return {'can_create': False, 'reason': 'no_permission'}
@@ -66,7 +68,7 @@ def can_create_stock_entry(requisition):
 @frappe.whitelist()
 def make_stock_entry(requisition):
 	doc = frappe.get_doc('Requisition', requisition)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'source_warehouse', 'target_warehouse')
 
 	# The person who submitted the requisition cannot fulfil their own request
 	if doc.requested_by == frappe.session.user:
@@ -76,12 +78,9 @@ def make_stock_entry(requisition):
 		)
 
 	# Only System Manager or a user with permission on the Source Warehouse may create
-	if 'System Manager' not in frappe.get_roles():
-		if not doc.source_warehouse or not frappe.db.exists('User Permission', {
-			'user': frappe.session.user,
-			'allow': 'Warehouse',
-			'for_value': doc.source_warehouse,
-		}):
+	if not is_system_manager():
+		warehouses = get_expanded_permitted_warehouses() or []
+		if not doc.source_warehouse or doc.source_warehouse not in warehouses:
 			frappe.throw(
 				_('You need permission on the Source Warehouse ({0}) to create a Stock Entry.').format(
 					doc.source_warehouse or _('not set')
@@ -169,7 +168,7 @@ def _get_in_transit_se_name(requisition):
 def get_in_transit_se_items(requisition):
 	"""Return the In Transit SE name and its items so the client can render the receipt dialog."""
 	doc = frappe.get_doc('Requisition', requisition)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'source_warehouse', 'target_warehouse')
 
 	se_name = _get_in_transit_se_name(requisition)
 	if not se_name:
@@ -196,7 +195,7 @@ def confirm_receipt_from_requisition(requisition, received_quantities=None):
 	"""Apply 'Confirm Receipt' on the In Transit SE. Only the original requester may call this.
 	received_quantities: JSON string mapping SE item name → received qty (allows partial receipt)."""
 	doc = frappe.get_doc('Requisition', requisition)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'source_warehouse', 'target_warehouse')
 
 	if frappe.session.user != doc.requested_by:
 		frappe.throw(
@@ -262,6 +261,6 @@ def confirm_receipt_from_requisition(requisition, received_quantities=None):
 @frappe.whitelist()
 def refresh_transfer_status(requisition):
 	doc = frappe.get_doc('Requisition', requisition)
-	doc.check_permission('read')
+	ensure_warehouse_doc_read_access(doc, 'source_warehouse', 'target_warehouse')
 	update_requisition_transfer_status(requisition)
 	return frappe.db.get_value('Requisition', requisition, 'transfer_status')
