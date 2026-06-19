@@ -239,6 +239,7 @@ doc_events = {
 			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
 		],
 		'on_submit': [
+			'bsp_engineering.doc_events.stock_entry.workflow_manufacture.apply_manufacture_workflow_state',
 			'bsp_engineering.doc_events.stock_entry.update_requisition_status.sync_requisition_transfer_status',
 		],
 		'on_cancel': [

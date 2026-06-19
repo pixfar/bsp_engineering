@@ -8,6 +8,7 @@ WORKFLOW_STATES = {
 	'Cancelled': 'Danger',
 	'In Transit': 'Warning',
 	'Requisition Received': 'Success',
+	'Manufacture Completed': 'Success',
 }
 
 

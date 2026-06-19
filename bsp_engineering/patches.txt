@@ -12,3 +12,4 @@ bsp_engineering.patches.v1_0.rename_pos_purchase_order_settings
 bsp_engineering.patches.v1_0.setup_requisition_stock_transfer_fields
 bsp_engineering.patches.v1_0.backfill_material_transfer_status
 bsp_engineering.patches.v1_0.revert_bsp_invoice_browser_print_changes
+bsp_engineering.patches.v1_0.setup_manufacture_stock_entry_workflow
