@@ -76,12 +76,14 @@ page_js = {
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 doctype_js = {
 	"Purchase Invoice": "public/js/purchase_invoice.js",
+	"Sales Invoice": "public/js/sales_invoice.js",
 	"Material Request": "public/js/material_request.js",
 	"Requisition": "bsp_engineering/doctype/requisition/requisition.js",
 	"Material Transfer": "bsp_engineering/doctype/material_transfer/material_transfer.js",
 }
 doctype_list_js = {
 	"Purchase Invoice": "public/js/purchase_invoice_list.js",
+	"Sales Invoice": "public/js/sales_invoice_list.js",
 	"Requisition": "public/js/requisition_list.js",
 	"Material Transfer": "public/js/material_transfer_list.js",
 }
@@ -193,10 +195,10 @@ doc_events = {
 		),
 	},
 	'Sales Invoice': {
-		'validate': (
-			'bsp_engineering.doc_events.invoice.sync_line_warehouse'
-			'.sync_line_warehouse_from_source'
-		),
+		'validate': [
+			'bsp_engineering.doc_events.sales_invoice.return_naming_series.enforce_return_naming_series',
+			'bsp_engineering.doc_events.invoice.sync_line_warehouse.sync_line_warehouse_from_source',
+		],
 		'on_submit': (
 			'bsp_engineering.doc_events.sales_invoice.create_payment.create_payment_entry_from_sales_invoice'
 		),

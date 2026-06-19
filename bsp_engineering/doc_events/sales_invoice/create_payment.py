@@ -26,6 +26,10 @@ def create_payment_and_delivery_on_submit(doc, method=None):
 
 
 def create_payment_entry_from_sales_invoice(doc, method=None):
+	if doc.is_return:
+		doc.db_set('custom_is_paid', 0, update_modified=False)
+		return False, 'Return invoice — payment entry not applicable.'
+
 	# Non-POS invoices: only proceed if custom_is_paid is checked
 	if not doc.is_pos and not doc.pos_profile:
 		if not doc.custom_is_paid:

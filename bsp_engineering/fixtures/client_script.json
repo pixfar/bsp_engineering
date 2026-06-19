@@ -3,11 +3,11 @@
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Sales Invoice",
-  "enabled": 1,
-  "modified": "2026-05-20 13:25:36.947511",
+  "enabled": 0,
+  "modified": "2026-06-20 00:00:00",
   "module": "Bsp Engineering",
   "name": "Hide Is Paid on Return Invoice",
-  "script": "frappe.ui.form.on('Sales Invoice', {\n    // Trigger when the form is loaded or refreshed\n    refresh: function(frm) {\n        handle_return_against(frm);\n    },\n});\n\nfunction handle_return_against(frm) {\n    // Check if the standard \"Return Against\" field has data\n    if (frm.doc.return_against) {\n        // Set the custom field value to 0\n        frm.set_value('custom_is_paid', 0);\n        \n        // Hide the custom field\n        frm.set_df_property('custom_is_paid', 'hidden', 1);\n        frm.refresh_field('custom_is_paid');\n    } else {\n        // Optional: Show the field again if Return Against is empty\n        frm.set_df_property('custom_is_paid', 'hidden', 0);\n    }\n}",
+  "script": "frappe.ui.form.on('Sales Invoice', {\n    refresh: function(frm) {\n        handle_return_against(frm);\n    },\n});\n\nfunction handle_return_against(frm) {\n    if (frm.doc.return_against || frm.doc.is_return) {\n        frm.set_df_property('custom_is_paid', 'hidden', 1);\n        frm.refresh_field('custom_is_paid');\n        if (!frm.doc.docstatus && frm.doc.custom_is_paid) {\n            frm.set_value('custom_is_paid', 0);\n        }\n    } else {\n        frm.set_df_property('custom_is_paid', 'hidden', 0);\n    }\n}",
   "view": "Form"
  },
  {
