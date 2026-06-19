@@ -126,6 +126,9 @@ doctype_list_js = {
 
 # before_install = "bsp_engineering.install.before_install"
 # after_install = "bsp_engineering.install.after_install"
+before_migrate = [
+	'bsp_engineering.compat.erpnext_party.apply_compat_patches',
+]
 
 # Uninstallation
 # ------------
