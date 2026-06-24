@@ -7,8 +7,20 @@ frappe.ui.form.on('Material Transfer', {
 		sync_item_code_query(frm);
 		set_status_indicator(frm);
 		setup_action_buttons(frm);
+		setup_print_button(frm);
 	},
 });
+
+function setup_print_button(frm) {
+	if (frm.is_new()) return;
+	frm.add_custom_button(__('Print'), function () {
+		const url = frappe.urllib.get_full_url(
+			'/api/method/frappe.utils.pdf.download_pdf?' +
+			$.param({ doctype: frm.doctype, name: frm.docname, format: 'BSP Material Transfer', no_letterhead: 0 })
+		);
+		window.open(url);
+	}).addClass('btn-default');
+}
 
 frappe.ui.form.on('Material Transfer Item', {
 	item_group(frm, cdt, cdn) {
