@@ -78,6 +78,7 @@ doctype_js = {
 	"Purchase Invoice": "public/js/purchase_invoice.js",
 	"Sales Invoice": "public/js/sales_invoice.js",
 	"Material Request": "public/js/material_request.js",
+	"Delivery Note": "public/js/delivery_note.js",
 	"Requisition": "bsp_engineering/doctype/requisition/requisition.js",
 	"Material Transfer": "bsp_engineering/doctype/material_transfer/material_transfer.js",
 }
