@@ -33,7 +33,7 @@ fixtures = [
     { "dt": "Custom Field" },
     { "dt": "Property Setter" },
     { "dt": "Client Script" },
-    { "dt": "Print Format" },
+    { "dt": "Print Format", "filters": [["name", "like", "BSP%"]] },
     { "dt": "Workflow State" },
     { "dt": "Workflow" },
 ]
