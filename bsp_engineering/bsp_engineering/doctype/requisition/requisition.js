@@ -8,8 +8,25 @@ frappe.ui.form.on('Requisition', {
 		setup_transfer_stock_button(frm);
 		setup_confirm_receipt_button(frm);
 		set_transfer_status_indicator(frm);
+		setup_print_button(frm);
 	},
 });
+
+function setup_print_button(frm) {
+	if (frm.is_new()) return;
+	frm.add_custom_button(__('Print'), function () {
+		const url = frappe.urllib.get_full_url(
+			'/api/method/frappe.utils.pdf.download_pdf?' +
+			$.param({
+				doctype: frm.doctype,
+				name: frm.docname,
+				format: 'BSP Requisition',
+				no_letterhead: 0,
+			})
+		);
+		window.open(url);
+	}).addClass('btn-default');
+}
 
 frappe.ui.form.on('Requisition Item', {
 	item_group(frm, cdt, cdn) {
