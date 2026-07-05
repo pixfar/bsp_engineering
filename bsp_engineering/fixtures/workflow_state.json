@@ -115,5 +115,23 @@
   "name": "Pending",
   "style": "",
   "workflow_state_name": "Pending"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-07-05 00:00:00",
+  "name": "Work In Progress",
+  "style": "Warning",
+  "workflow_state_name": "Work In Progress"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-07-05 00:00:00",
+  "name": "Production Complete",
+  "style": "Success",
+  "workflow_state_name": "Production Complete"
  }
 ]

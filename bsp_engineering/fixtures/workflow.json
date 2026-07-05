@@ -26,6 +26,22 @@
     "workflow_builder_id": "1"
    },
    {
+    "allow_edit": "Manufacturing User",
+    "avoid_status_override": 0,
+    "doc_status": "0",
+    "is_optional_state": 0,
+    "message": null,
+    "next_action_email_template": null,
+    "parent": "BSP Production Plan Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 0,
+    "state": "Work In Progress",
+    "update_field": null,
+    "update_value": null,
+    "workflow_builder_id": "4"
+   },
+   {
     "allow_edit": "Manufacturing Manager",
     "avoid_status_override": 0,
     "doc_status": "1",
@@ -36,7 +52,7 @@
     "parentfield": "states",
     "parenttype": "Workflow",
     "send_email": 0,
-    "state": "Completed",
+    "state": "Production Complete",
     "update_field": null,
     "update_value": null,
     "workflow_builder_id": "2"
@@ -60,17 +76,30 @@
   ],
   "transitions": [
    {
-    "action": "Mark Completed",
+    "action": "Start Production",
     "allow_self_approval": 1,
-    "allowed": "Manufacturing Manager",
+    "allowed": "Manufacturing User",
     "condition": null,
-    "next_state": "Completed",
+    "next_state": "Work In Progress",
     "parent": "BSP Production Plan Workflow",
     "parentfield": "transitions",
     "parenttype": "Workflow",
     "send_email_to_creator": 0,
     "state": "Draft",
     "workflow_builder_id": "action-1"
+   },
+   {
+    "action": "Mark Production Complete",
+    "allow_self_approval": 1,
+    "allowed": "Manufacturing Manager",
+    "condition": null,
+    "next_state": "Production Complete",
+    "parent": "BSP Production Plan Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "send_email_to_creator": 0,
+    "state": "Work In Progress",
+    "workflow_builder_id": "action-2"
    },
    {
     "action": "Cancel",
@@ -82,8 +111,8 @@
     "parentfield": "transitions",
     "parenttype": "Workflow",
     "send_email_to_creator": 0,
-    "state": "Completed",
-    "workflow_builder_id": "action-2"
+    "state": "Production Complete",
+    "workflow_builder_id": "action-3"
    }
   ],
   "workflow_data": null,
