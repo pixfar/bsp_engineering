@@ -1,10 +1,27 @@
 import frappe
 
+# Doctypes that manage their own multi-step submission flow in application code
+# (e.g. posawesome's invoice_processing: save a draft, finalize payments/taxes,
+# THEN submit). Auto-submitting them the instant they're saved as a draft races
+# with that code — it ends up submitting the invoice before the caller is done
+# with it, so the caller's own later `.submit()`/field updates fail with
+# "Cannot Update After Submit", even though the document was in fact submitted.
+AUTO_SUBMIT_EXCLUDED_DOCTYPES = frozenset(
+	{
+		'Sales Invoice',
+		'POS Invoice',
+		'Purchase Invoice',
+	}
+)
+
 
 def auto_submit_after_save(doc, method):
 	"""Auto-submit any submittable document immediately after it is saved in Draft state.
 	Skipped for doctypes that have an active Workflow — the workflow controls submission."""
 	if doc.docstatus != 0:
+		return
+
+	if doc.doctype in AUTO_SUBMIT_EXCLUDED_DOCTYPES:
 		return
 
 	if not frappe.get_meta(doc.doctype).is_submittable:
