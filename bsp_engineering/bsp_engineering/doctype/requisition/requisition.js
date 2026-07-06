@@ -16,7 +16,7 @@ function setup_print_button(frm) {
 	if (frm.is_new()) return;
 	frm.add_custom_button(__('Print'), function () {
 		const url = frappe.urllib.get_full_url(
-			'/api/method/frappe.utils.pdf.download_pdf?' +
+			'/api/method/frappe.utils.print_format.download_pdf?' +
 			$.param({
 				doctype: frm.doctype,
 				name: frm.docname,
