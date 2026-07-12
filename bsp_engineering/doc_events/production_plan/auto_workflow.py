@@ -22,6 +22,11 @@ def on_submit(doc, method):
 
 
 def _complete_all_work_orders(doc):
+    """Raises on the first Work Order that can't be completed (e.g. insufficient
+    stock) instead of swallowing it — letting the Production Plan's own submit
+    fail too, so its workflow_state never gets set to Production Complete while a
+    linked Work Order is actually still unfinished. Frappe rolls back the whole
+    request on an unhandled exception, so no half-applied state is left behind."""
     work_orders = frappe.get_all(
         'Work Order',
         filters={
@@ -48,14 +53,14 @@ def _complete_all_work_orders(doc):
             _create_and_submit_stock_entry(wo.name, 'Manufacture', remaining_qty)
             completed += 1
 
-        except Exception:
+        except Exception as e:
             frappe.log_error(
                 title=f'Auto-complete Work Order {wo.name} failed',
                 message=frappe.get_traceback(),
             )
-            frappe.msgprint(
-                _("Could not complete Work Order {0}. Check Error Log for details.").format(wo.name),
-                indicator='orange',
+            frappe.throw(
+                _("Could not complete Work Order {0}: {1}").format(wo.name, str(e)),
+                title=_('Production Not Complete'),
             )
 
     if completed:
