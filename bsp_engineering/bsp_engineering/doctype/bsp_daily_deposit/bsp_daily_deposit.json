@@ -96,7 +96,7 @@
    "fieldname": "deposit_type",
    "fieldtype": "Select",
    "label": "Deposit Type",
-   "options": "Bank Deposit\nCash Deposit",
+   "options": "Bank Deposit\nCash Deposit\nbKash Deposit\nNagad Deposit\nRocket Deposit",
    "reqd": 1
   }
  ],
@@ -104,8 +104,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-13 20:53:02.233785",
- "modified_by": "Administrator",
+ "modified": "2026-07-19 23:51:15.051472",
+ "modified_by": "alamin@pixfar.com",
  "module": "Bsp Engineering",
  "name": "BSP Daily Deposit",
  "naming_rule": "Expression",

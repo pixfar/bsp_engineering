@@ -15,7 +15,7 @@ frappe.query_reports["BSP Stock Balance"] = {
 			"label": __("From Date"),
 			"fieldtype": "Date",
 			"default": "2020-01-01",
-			"description": __("Opening balance is calculated using entries posted before this date")
+			"description": __("Limits the report to items with stock movement on or after this date")
 		},
 		{
 			"fieldname": "to_date",
