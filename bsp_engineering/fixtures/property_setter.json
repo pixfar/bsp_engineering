@@ -301,7 +301,7 @@
   "property": "options",
   "property_type": "Text",
   "row_name": null,
-  "value": "ACC-SINV-.YYYY.-\nACC-SIN-RET.YYYY.-"
+  "value": "ACC-SINV-.YYYY.-\nACC-SIN-RET-.YYYY.-"
  },
  {
   "default_value": null,
