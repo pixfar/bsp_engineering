@@ -18,3 +18,4 @@ bsp_engineering.patches.v1_0.fix_return_invoice_custom_is_paid
 bsp_engineering.patches.v1_0.ensure_sales_invoice_workflow_actions
 bsp_engineering.patches.v1_0.add_production_plan_wip_state
 bsp_engineering.patches.v1_0.add_sales_invoice_payment_method_split
+bsp_engineering.patches.v1_0.add_purchase_invoice_payment_method_split
