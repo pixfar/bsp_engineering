@@ -40,9 +40,21 @@ def create_payment_entry_from_sales_invoice(doc, method=None):
 
 		return _create_full_payment_entry(doc)
 
-	# POS invoices: accounting is handled internally via the payments child table.
-	# ERPNext sets outstanding_amount = 0 after POS submission regardless of
-	# partial payment, so creating a separate Payment Entry is not possible.
+	# POS invoices with is_pos=1 have accounting handled internally via the
+	# payments child table (ERPNext posts payment-side GL directly from those
+	# rows, so a separate Payment Entry would double-post the same money).
+	#
+	# POS Awesome flips is_pos to 0 before submit specifically to skip that
+	# direct GL posting for every POS sale — pos_profile stays set so the
+	# invoice is still a recognised POS sale everywhere else (shift totals,
+	# etc). In that case we create one real, submitted Payment Entry per
+	# payment method here instead.
+	if not doc.is_pos:
+		if _has_existing_payment_entry(doc.name):
+			doc.db_set('custom_is_paid', 1, update_modified=False)
+			return True, 'Payment Entries already exist for this invoice.'
+		return _create_payment_entries_per_payment_method(doc)
+
 	invoice_total = flt(doc.rounded_total or doc.grand_total)
 	paid_amount = flt(doc.paid_amount)
 
@@ -56,6 +68,81 @@ def create_payment_entry_from_sales_invoice(doc, method=None):
 
 	doc.db_set('custom_is_paid', 0, update_modified=False)
 	return False, 'POS invoice — no payment recorded.'
+
+
+def _create_payment_entries_per_payment_method(doc):
+	"""Create one submitted Payment Entry per payment method row on a POS
+	invoice that was submitted with is_pos=0 (see caller for why).
+
+	Reads from `custom_payment_method_split` rather than the standard
+	`payments` child table: ERPNext's own calculate_paid_amount()
+	(taxes_and_totals.py) wipes `payments` to [] on every validate() once
+	is_pos is falsy on a non-return invoice, so by the time this on_submit
+	hook runs `payments` is already empty. POS Awesome copies the cashier's
+	split into `custom_payment_method_split` before flipping is_pos, since
+	that's a custom field ERPNext core doesn't know about and won't touch.
+
+	Mirrors the Payment Entry shape POS Awesome itself uses for its own
+	generated Payment Entries, including reference_no = POS Opening Shift so
+	the invoice's payment still surfaces in POS Closing Shift / Z-report
+	totals.
+	"""
+	created = []
+
+	for row in doc.custom_payment_method_split or []:
+		mode_of_payment = row.mode_of_payment
+		amount = flt(row.amount)
+		if amount <= 0:
+			continue
+
+		try:
+			payment_entry = frappe.get_doc(
+				{
+					'doctype': 'Payment Entry',
+					'payment_type': 'Receive',
+					'party_type': 'Customer',
+					'party': doc.customer,
+					'company': doc.company,
+					'posting_date': doc.posting_date,
+					'paid_amount': amount,
+					'received_amount': amount,
+					'paid_from': doc.debit_to,
+					'paid_to': row.account,
+					'mode_of_payment': mode_of_payment,
+					'reference_no': doc.get('posa_pos_opening_shift') or doc.name,
+					'reference_date': doc.posting_date,
+					'references': [
+						{
+							'reference_doctype': 'Sales Invoice',
+							'reference_name': doc.name,
+							'allocated_amount': amount,
+						}
+					],
+				}
+			)
+			payment_entry.flags.ignore_permissions = True
+			payment_entry.insert(ignore_permissions=True)
+			payment_entry.submit()
+			created.append(payment_entry.name)
+			frappe.db.set_value(
+				'Sales Invoice Payment Split', row.name, 'payment_entry', payment_entry.name
+			)
+		except Exception:
+			frappe.log_error(
+				frappe.get_traceback(),
+				f'Payment Entry creation failed for Sales Invoice {doc.name} ({mode_of_payment})',
+			)
+
+	if not created:
+		doc.db_set('custom_is_paid', 0, update_modified=False)
+		return False, 'POS invoice — unable to create Payment Entries.'
+
+	outstanding_amount = flt(frappe.db.get_value('Sales Invoice', doc.name, 'outstanding_amount'))
+	is_fully_paid = outstanding_amount <= 0.001
+	doc.db_set('custom_is_paid', 1 if is_fully_paid else 0, update_modified=False)
+
+	entry_word = 'Entry' if len(created) == 1 else 'Entries'
+	return is_fully_paid, f'{len(created)} Payment {entry_word} created ({", ".join(created)}).'
 
 
 def _create_full_payment_entry(doc):
