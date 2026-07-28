@@ -70,6 +70,16 @@ def create_payment_entry_from_sales_invoice(doc, method=None):
 	return False, 'POS invoice — no payment recorded.'
 
 
+def _get_pos_profile_change_account(pos_profile):
+	"""account_for_change_amount configured on the invoice's own POS Profile
+	-- queried fresh rather than trusting doc.account_for_change_amount,
+	since ERPNext's set_pos_fields() only refreshes that field while
+	is_pos == 1, and POS Awesome flips is_pos to 0 before this hook runs."""
+	if not pos_profile:
+		return None
+	return frappe.db.get_value('POS Profile', pos_profile, 'account_for_change_amount')
+
+
 def _create_payment_entries_per_payment_method(doc):
 	"""Create one submitted Payment Entry per payment method row on a POS
 	invoice that was submitted with is_pos=0 (see caller for why).
@@ -86,8 +96,15 @@ def _create_payment_entries_per_payment_method(doc):
 	generated Payment Entries, including reference_no = POS Opening Shift so
 	the invoice's payment still surfaces in POS Closing Shift / Z-report
 	totals.
+
+	Every payment method's paid_to is the showroom's POS Profile
+	account_for_change_amount, not each mode of payment's own account --
+	this is what lets accounting be tracked per showroom instead of per
+	payment method. Falls back to the payment split row's own account only
+	if the POS Profile has no change account configured.
 	"""
 	created = []
+	change_account = _get_pos_profile_change_account(doc.pos_profile) or doc.account_for_change_amount
 
 	for row in doc.custom_payment_method_split or []:
 		mode_of_payment = row.mode_of_payment
@@ -107,7 +124,7 @@ def _create_payment_entries_per_payment_method(doc):
 					'paid_amount': amount,
 					'received_amount': amount,
 					'paid_from': doc.debit_to,
-					'paid_to': row.account,
+					'paid_to': change_account or row.account,
 					'mode_of_payment': mode_of_payment,
 					'reference_no': doc.get('posa_pos_opening_shift') or doc.name,
 					'reference_date': doc.posting_date,

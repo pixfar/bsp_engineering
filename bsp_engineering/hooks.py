@@ -163,13 +163,15 @@ before_migrate = [
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"Sales Invoice": "bsp_engineering.utils.invoice_permissions.get_sales_invoice_permission_query",
+	"Purchase Invoice": "bsp_engineering.utils.invoice_permissions.get_purchase_invoice_permission_query",
+}
+
+has_permission = {
+	"Sales Invoice": "bsp_engineering.utils.invoice_permissions.has_sales_invoice_permission",
+	"Purchase Invoice": "bsp_engineering.utils.invoice_permissions.has_purchase_invoice_permission",
+}
 
 # DocType Class
 # ---------------
