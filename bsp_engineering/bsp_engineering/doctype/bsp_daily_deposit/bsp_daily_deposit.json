@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "section_break_kosb",
+  "status",
   "warehouse",
   "user",
   "deposit_type",
@@ -16,7 +17,8 @@
   "posting_date",
   "user_name",
   "amount",
-  "acknowledgment_receipt"
+  "acknowledgment_receipt",
+  "payment_entry"
  ],
  "fields": [
   {
@@ -32,6 +34,25 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Pending\nDeposited\nCancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_entry",
+   "fieldtype": "Link",
+   "label": "Payment Entry",
+   "no_copy": 1,
+   "options": "Payment Entry",
+   "read_only": 1
   },
   {
    "fieldname": "warehouse",

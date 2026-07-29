@@ -11,6 +11,15 @@ AUTO_SUBMIT_EXCLUDED_DOCTYPES = frozenset(
 		'Sales Invoice',
 		'POS Invoice',
 		'Purchase Invoice',
+		# Same race as above: every Payment Entry creation path in this app
+		# (Sales/Purchase Invoice payment splits, standalone Customer/Supplier
+		# payments, Expense Claim reimbursements) does insert() then submit().
+		# Auto-submitting inside insert() leaves the caller's later submit()
+		# call operating on a stale in-memory doc, which throws
+		# UpdateAfterSubmitError as soon as the Payment Entry has any
+		# `references` rows. Also restores normal Draft-then-Submit behavior
+		# for Payment Entries created by hand in the Desk UI.
+		'Payment Entry',
 	}
 )
 

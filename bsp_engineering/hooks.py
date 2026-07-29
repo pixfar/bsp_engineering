@@ -117,10 +117,9 @@ doctype_list_js = {
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "bsp_engineering.utils.jinja_methods",
-# 	"filters": "bsp_engineering.utils.jinja_filters"
-# }
+jinja = {
+	"methods": "bsp_engineering.utils.jinja_methods",
+}
 
 # Installation
 # ------------
@@ -326,6 +325,10 @@ override_doctype_dashboards = {
 	'Requisition': (
 		'bsp_engineering.bsp_engineering.doctype.requisition'
 		'.requisition_dashboard.get_data'
+	),
+	'BSP Daily Deposit': (
+		'bsp_engineering.bsp_engineering.doctype.bsp_daily_deposit'
+		'.bsp_daily_deposit_dashboard.get_data'
 	),
 }
 
