@@ -2,20 +2,23 @@
 # For license information, please see license.txt
 
 """Warehouse-wise, day-wise cash summary matching the branch cash-box
-workflow: each branch sells during the day, pays small local expenses out of
-the till, and deposits what's left to the bank (typically the next morning).
+workflow: each branch sells during the day, receives fund transfers into
+the till, pays small local expenses out of the till, and deposits what's
+left to the bank (typically the next morning).
 
 For each warehouse and day:
 - Sales Collection Summary -- every Sales Invoice on its own line, plus Total.
+- Fund Transfer -- Internal Transfer Payment Entries attributed to the
+  warehouse via custom_warehouse (custom_fund_transfer=1), plus Total.
 - Cash Out Outflow -- every Expense Claim on its own line, plus Total Expense.
 - BSP Deposit -- every actual BSP Daily Deposit on its own line, plus Total
   Deposited, plus an "Expected Deposit" reference line (= Income, i.e.
-  Collection minus Expense) so a branch that deposits correctly reconciles
-  to zero.
+  Collection + Fund Transfer - Expense) so a branch that deposits correctly
+  reconciles to zero.
 - Opening/Closing Balance, carried forward day to day per warehouse.
   Closing Balance = Opening Balance + Income - Bank Deposit, where Income is
-  net of the day's expenses (Collection - Expense) -- so on a day where the
-  branch deposits exactly what it should, nothing carries over.
+  Collection + Fund Transfer - Expense -- so on a day where the branch
+  deposits exactly what it should, nothing carries over.
 
 "Selling Amount" is the invoice's gross total before discount
 (grand_total + discount_amount); "Received Amount" (collection) is what's
@@ -56,6 +59,7 @@ def get_columns():
 		{"label": _("Discount Amount"), "fieldname": "discount_amount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Due Amount"), "fieldname": "due_amount", "fieldtype": "Currency", "width": 110},
 		{"label": _("Received Amount"), "fieldname": "received_amount", "fieldtype": "Currency", "width": 130},
+		{"label": _("Fund Transfer"), "fieldname": "fund_transfer_amount", "fieldtype": "Currency", "width": 150},
 		{"label": _("Expense Amount"), "fieldname": "expense_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Deposit Amount"), "fieldname": "deposit_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Balance"), "fieldname": "balance_amount", "fieldtype": "Currency", "width": 130},
@@ -130,12 +134,44 @@ def get_deposits(company, warehouse, from_date, to_date):
 	)
 
 
+def get_fund_transfers(company, warehouse, from_date, to_date):
+	"""Fund Transfer income -- Internal Transfer Payment Entries attributed to
+	a warehouse via custom_warehouse (set from Account Paid To on create).
+	custom_fund_transfer=1 excludes deposit Payment Entries which are also
+	Internal Transfers but already shown under BSP Deposit."""
+	if not frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
+		return []
+
+	wh_condition, wh_params = _warehouse_condition("pe.custom_warehouse", warehouse)
+	fund_transfer_filter = ""
+	if frappe.get_meta("Payment Entry").has_field("custom_fund_transfer"):
+		fund_transfer_filter = "AND IFNULL(pe.custom_fund_transfer, 0) = 1"
+
+	return frappe.db.sql(
+		f"""
+		SELECT pe.name, pe.custom_warehouse AS warehouse, pe.posting_date,
+		       pe.paid_amount AS amount, pe.paid_from, pe.paid_to,
+		       pe.mode_of_payment, pe.reference_no
+		FROM `tabPayment Entry` pe
+		WHERE pe.docstatus = 1
+		  AND pe.company = %(company)s
+		  AND pe.payment_type = 'Internal Transfer'
+		  AND pe.custom_warehouse IS NOT NULL AND pe.custom_warehouse != ''
+		  AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
+		  {fund_transfer_filter}
+		  {wh_condition}
+		ORDER BY pe.custom_warehouse, pe.posting_date, pe.name
+		""",
+		{"company": company, "from_date": from_date, "to_date": to_date, **wh_params},
+		as_dict=True,
+	)
+
+
 def get_opening_balances(company, warehouse, from_date):
-	"""Opening Balance = every Sales Invoice amount posted before from_date,
-	minus every Bank Deposit made before from_date -- a simple, transparent
-	running total. The day-by-day rows within the selected date range already
-	show the full Sales/Expense/Deposit breakdown, so this seed value only
-	needs invoices vs. deposits, not expense."""
+	"""Opening Balance = Sales Invoice amounts + Fund Transfer income before
+	from_date, minus Bank Deposits before from_date. Expenses are not part of
+	the seed value -- the day-by-day rows within the selected range already
+	show the full Sales / Fund Transfer / Expense / Deposit breakdown."""
 	balances = {}
 
 	wh_condition, wh_params = _warehouse_condition("si.set_warehouse", warehouse)
@@ -153,6 +189,28 @@ def get_opening_balances(company, warehouse, from_date):
 		as_dict=True,
 	):
 		balances[row.warehouse] = balances.get(row.warehouse, 0.0) + flt(row.amount)
+
+	if frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
+		wh_condition, wh_params = _warehouse_condition("pe.custom_warehouse", warehouse)
+		fund_transfer_filter = ""
+		if frappe.get_meta("Payment Entry").has_field("custom_fund_transfer"):
+			fund_transfer_filter = "AND IFNULL(pe.custom_fund_transfer, 0) = 1"
+		for row in frappe.db.sql(
+			f"""
+			SELECT pe.custom_warehouse AS warehouse, SUM(pe.paid_amount) AS amount
+			FROM `tabPayment Entry` pe
+			WHERE pe.docstatus = 1 AND pe.company = %(company)s
+			  AND pe.payment_type = 'Internal Transfer'
+			  AND pe.custom_warehouse IS NOT NULL AND pe.custom_warehouse != ''
+			  AND pe.posting_date < %(from_date)s
+			  {fund_transfer_filter}
+			  {wh_condition}
+			GROUP BY pe.custom_warehouse
+			""",
+			{"company": company, "from_date": from_date, **wh_params},
+			as_dict=True,
+		):
+			balances[row.warehouse] = balances.get(row.warehouse, 0.0) + flt(row.amount)
 
 	wh_condition, wh_params = _warehouse_condition("dd.warehouse", warehouse)
 	for row in frappe.db.sql(
@@ -194,17 +252,23 @@ def get_data(filters, from_date, to_date):
 
 	groups = {}
 
+	def ensure_group(key):
+		return groups.setdefault(
+			key,
+			{"sales": [], "expenses": [], "deposits": [], "fund_transfers": []},
+		)
+
 	for inv in get_sales_invoices(company, warehouse, from_date, to_date):
-		key = (inv.warehouse, inv.posting_date)
-		groups.setdefault(key, {"sales": [], "expenses": [], "deposits": []})["sales"].append(inv)
+		ensure_group((inv.warehouse, inv.posting_date))["sales"].append(inv)
 
 	for row in get_expense_claims(company, warehouse, from_date, to_date):
-		key = (row.warehouse, row.posting_date)
-		groups.setdefault(key, {"sales": [], "expenses": [], "deposits": []})["expenses"].append(row)
+		ensure_group((row.warehouse, row.posting_date))["expenses"].append(row)
 
 	for row in get_deposits(company, warehouse, from_date, to_date):
-		key = (row.warehouse, row.posting_date)
-		groups.setdefault(key, {"sales": [], "expenses": [], "deposits": []})["deposits"].append(row)
+		ensure_group((row.warehouse, row.posting_date))["deposits"].append(row)
+
+	for row in get_fund_transfers(company, warehouse, from_date, to_date):
+		ensure_group((row.warehouse, row.posting_date))["fund_transfers"].append(row)
 
 	if not groups:
 		return []
@@ -251,6 +315,30 @@ def get_data(filters, from_date, to_date):
 					})
 				data.append(_bold_row(wh, current_date, _("Total"), **sales_total))
 
+			fund_transfer_total = 0.0
+			if group["fund_transfers"]:
+				data.append(_section_title(wh, current_date, _("Fund Transfer")))
+				for idx, row in enumerate(group["fund_transfers"], start=1):
+					amount = flt(row.amount)
+					fund_transfer_total += amount
+					data.append({
+						"warehouse": wh,
+						"date": current_date,
+						"sl": idx,
+						"particulars": _("Fund Transfer"),
+						"description": row.paid_to or "",
+						"reference_no": row.name,
+						"fund_transfer_amount": amount,
+					})
+				data.append(
+					_bold_row(
+						wh,
+						current_date,
+						_("Total Fund Transfer"),
+						fund_transfer_amount=fund_transfer_total,
+					)
+				)
+
 			expense_total = 0.0
 			if group["expenses"]:
 				data.append(_section_title(wh, current_date, _("Cash Out Outflow")))
@@ -268,7 +356,7 @@ def get_data(filters, from_date, to_date):
 					})
 				data.append(_bold_row(wh, current_date, _("Total Expense"), expense_amount=expense_total))
 
-			income = sales_total["received_amount"] - expense_total
+			income = sales_total["received_amount"] + fund_transfer_total - expense_total
 			deposit_total = 0.0
 			data.append(_section_title(wh, current_date, _("BSP Deposit")))
 			if group["deposits"]:
@@ -286,7 +374,10 @@ def get_data(filters, from_date, to_date):
 					})
 				data.append(_bold_row(wh, current_date, _("Total Deposited"), deposit_amount=deposit_total))
 			data.append(_bold_row(
-				wh, current_date, _("Expected Deposit (Collection - Expense)"), deposit_amount=income
+				wh,
+				current_date,
+				_("Expected Deposit (Collection + Fund Transfer - Expense)"),
+				deposit_amount=income,
 			))
 
 			closing_balance = opening_balance + income - deposit_total

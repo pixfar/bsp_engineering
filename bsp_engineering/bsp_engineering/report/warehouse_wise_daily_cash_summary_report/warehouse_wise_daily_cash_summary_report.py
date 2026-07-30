@@ -3,11 +3,13 @@
 
 """One row per warehouse, summarizing the same figures the (per-transaction)
 Daily Cash Summary Report shows in detail over the selected date range:
-invoice count, sales/discount/due/collection totals, expense total, bank
-deposit total, and the resulting net cash movement and closing balance.
+invoice count, sales/discount/due/collection totals, fund transfer income,
+expense total, bank deposit total, and the resulting net cash movement and
+closing balance.
 
 Reuses the warehouse-scoped query helpers from daily_cash_summary_report.py
 (Sales Invoice via `set_warehouse`, Expense Claim via `custom_warehouse`,
+Fund Transfer via Payment Entry Internal Transfer + `custom_warehouse`,
 BSP Daily Deposit via its own `warehouse` field) so the figures always match
 that report and posawesome's daily cash summary PDF -- see that module's
 docstring for the full accounting model this mirrors.
@@ -43,6 +45,12 @@ def get_columns():
 		{"label": _("Total Discount"), "fieldname": "total_discount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Total Due"), "fieldname": "total_due", "fieldtype": "Currency", "width": 120},
 		{"label": _("Total Collection"), "fieldname": "total_collection", "fieldtype": "Currency", "width": 140},
+		{
+			"label": _("Fund Transfer"),
+			"fieldname": "fund_transfer_income",
+			"fieldtype": "Currency",
+			"width": 150,
+		},
 		{"label": _("Total Expense"), "fieldname": "total_expense", "fieldtype": "Currency", "width": 120},
 		{"label": _("Net Cash Balance"), "fieldname": "net_cash_balance", "fieldtype": "Currency", "width": 140},
 		{"label": _("Bank Deposit"), "fieldname": "bank_deposit", "fieldtype": "Currency", "width": 130},
@@ -62,11 +70,18 @@ def _get_report_functions():
 	from bsp_engineering.bsp_engineering.report.daily_cash_summary_report.daily_cash_summary_report import (
 		get_deposits,
 		get_expense_claims,
+		get_fund_transfers,
 		get_opening_balances,
 		get_sales_invoices,
 	)
 
-	return get_sales_invoices, get_expense_claims, get_deposits, get_opening_balances
+	return (
+		get_sales_invoices,
+		get_expense_claims,
+		get_deposits,
+		get_fund_transfers,
+		get_opening_balances,
+	)
 
 
 def _empty_bucket():
@@ -76,6 +91,7 @@ def _empty_bucket():
 		"total_discount": 0.0,
 		"total_due": 0.0,
 		"total_collection": 0.0,
+		"fund_transfer_income": 0.0,
 		"total_expense": 0.0,
 		"bank_deposit": 0.0,
 	}
@@ -84,11 +100,18 @@ def _empty_bucket():
 def get_data(filters, from_date, to_date):
 	company = filters.company
 	warehouse = filters.get("warehouse")
-	get_sales_invoices, get_expense_claims, get_deposits, get_opening_balances = _get_report_functions()
+	(
+		get_sales_invoices,
+		get_expense_claims,
+		get_deposits,
+		get_fund_transfers,
+		get_opening_balances,
+	) = _get_report_functions()
 
 	sales_invoices = get_sales_invoices(company, warehouse, from_date, to_date)
 	expense_claims = get_expense_claims(company, warehouse, from_date, to_date)
 	deposits = get_deposits(company, warehouse, from_date, to_date)
+	fund_transfers = get_fund_transfers(company, warehouse, from_date, to_date)
 	opening_balances = get_opening_balances(company, warehouse, from_date)
 
 	totals_by_wh = {}
@@ -105,6 +128,9 @@ def get_data(filters, from_date, to_date):
 		b["total_discount"] += flt(inv.discount_amount)
 		b["total_due"] += flt(inv.outstanding_amount)
 		b["total_collection"] += flt(inv.grand_total) - flt(inv.outstanding_amount)
+
+	for row in fund_transfers:
+		bucket(row.warehouse)["fund_transfer_income"] += flt(row.amount)
 
 	for row in expense_claims:
 		bucket(row.warehouse)["total_expense"] += flt(row.grand_total)
@@ -127,7 +153,9 @@ def get_data(filters, from_date, to_date):
 	data = []
 	for wh in sorted(warehouses, key=lambda w: warehouse_names.get(w, w)):
 		b = totals_by_wh.get(wh) or _empty_bucket()
-		net_cash_balance = b["total_collection"] - b["total_expense"]
+		net_cash_balance = (
+			b["total_collection"] + b["fund_transfer_income"] - b["total_expense"]
+		)
 		opening = flt(opening_balances.get(wh))
 		closing_cash_balance = opening + net_cash_balance - b["bank_deposit"]
 
@@ -139,6 +167,7 @@ def get_data(filters, from_date, to_date):
 				"total_discount": b["total_discount"],
 				"total_due": b["total_due"],
 				"total_collection": b["total_collection"],
+				"fund_transfer_income": b["fund_transfer_income"],
 				"total_expense": b["total_expense"],
 				"net_cash_balance": net_cash_balance,
 				"bank_deposit": b["bank_deposit"],
