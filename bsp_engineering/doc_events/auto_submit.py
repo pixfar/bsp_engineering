@@ -24,6 +24,7 @@ AUTO_SUBMIT_EXCLUDED_DOCTYPES = frozenset(
 		'Salary Structure',
 		'Salary Structure Assignment',
 		'Salary Slip',
+		'Leave Application',
 	}
 )
 
