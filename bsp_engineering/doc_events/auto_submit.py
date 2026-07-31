@@ -20,6 +20,10 @@ AUTO_SUBMIT_EXCLUDED_DOCTYPES = frozenset(
 		# `references` rows. Also restores normal Draft-then-Submit behavior
 		# for Payment Entries created by hand in the Desk UI.
 		'Payment Entry',
+		'Payroll Entry',
+		'Salary Structure',
+		'Salary Structure Assignment',
+		'Salary Slip',
 	}
 )
 
