@@ -70,7 +70,6 @@
  {
   "absolute_value": 0,
   "align_labels_right": 0,
-  "creation": "2026-08-04 12:00:00.000000",
   "css": "/* Force visible black table borders (default is a faint #d1d8dd) */\n.print-format table.table-bordered,\n.print-format table.table-bordered > thead > tr > th,\n.print-format table.table-bordered > thead > tr > td,\n.print-format table.table-bordered > tbody > tr > th,\n.print-format table.table-bordered > tbody > tr > td {\n\tborder: 1px solid #000 !important;\n}\n\n/* Browser print fixes for BSP Sales/Purchase Invoice (PDF uses wkhtmltopdf). */\n@media print {\n\t@page {\n\t\tsize: A4 portrait;\n\t\tmargin: 10mm;\n\t}\n\n\thtml,\n\tbody {\n\t\theight: auto !important;\n\t\toverflow: visible !important;\n\t}\n\n\t.print-format-gutter {\n\t\tpadding: 0 !important;\n\t\tbackground: #fff !important;\n\t}\n\n\t.print-format {\n\t\tpadding: 0 !important;\n\t\tmargin: 0 !important;\n\t\tmin-height: 0 !important;\n\t\tmax-width: none !important;\n\t\twidth: 100% !important;\n\t\tborder-radius: 0 !important;\n\t\tbox-shadow: none !important;\n\t}\n\n\t#header-html,\n\t#footer-html,\n\tfooter,\n\t.bsp-print-footer {\n\t\tdisplay: block !important;\n\t}\n\n\t.visible-pdf.bsp-print-footer,\n\t#footer-html.bsp-print-footer,\n\t#footer-html {\n\t\tdisplay: block !important;\n\t}\n\n\t.page-number,\n\t.visible-pdf.page-number {\n\t\tdisplay: none !important;\n\t}\n\n\t#footer-html,\n\t.bsp-print-footer {\n\t\tpage-break-inside: avoid;\n\t\tmargin-top: 12px !important;\n\t}\n\n\t.letter-head-footer {\n\t\tpage-break-inside: avoid;\n\t\tmargin-top: 16px !important;\n\t}\n\n\t.bsp-print-spacer {\n\t\tpadding-bottom: 12px !important;\n\t\tmin-height: 0 !important;\n\t}\n\n\ttable.table-bordered {\n\t\tpage-break-inside: auto;\n\t}\n\n\ttable.table-bordered tr {\n\t\tpage-break-inside: avoid;\n\t}\n}\n",
   "custom_format": 1,
   "default_print_language": "en",
@@ -87,7 +86,7 @@
   "margin_left": 15.0,
   "margin_right": 15.0,
   "margin_top": 15.0,
-  "modified": "2026-08-04 12:00:00.000000",
+  "modified": "2026-08-04 12:00:00",
   "module": "Accounts",
   "name": "BSP Sales Invoice For Agent",
   "page_number": "Hide",
