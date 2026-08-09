@@ -1,0 +1,154 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "VWW-.YYYY.-.#####",
+ "creation": "2026-08-09 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "start_date",
+  "column_break_dates",
+  "end_date",
+  "section_break_work",
+  "total_weekly_work_kg",
+  "column_break_work",
+  "allowed_wastage_kg",
+  "section_break_wastage",
+  "actual_wastage_kg",
+  "column_break_wastage",
+  "excess_wastage_kg",
+  "penalty_amount",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "description": "Week runs Thursday → Wednesday.",
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Start Date (Thursday)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "End Date (Wednesday)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_work",
+   "fieldtype": "Section Break",
+   "label": "Weekly Production"
+  },
+  {
+   "fieldname": "total_weekly_work_kg",
+   "fieldtype": "Float",
+   "label": "Total Weekly Work (KG)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_work",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "allowed_wastage_kg",
+   "fieldtype": "Float",
+   "label": "Allowed Wastage (KG) (1%)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_wastage",
+   "fieldtype": "Section Break",
+   "label": "Wastage & Penalty"
+  },
+  {
+   "fieldname": "actual_wastage_kg",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Actual Wastage (KG)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_wastage",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "excess_wastage_kg",
+   "fieldtype": "Float",
+   "label": "Excess Wastage (KG)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "penalty_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Penalty Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Verti Weekly Wastage",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Bsp Engineering",
+ "name": "Verti Weekly Wastage",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "HR User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "start_date",
+ "track_changes": 1
+}
