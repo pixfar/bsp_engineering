@@ -100,6 +100,24 @@ def get_columns():
 			"width": 120,
 		},
 		{
+			"label": _("Transfer ID"),
+			"fieldname": "transfer_id",
+			"fieldtype": "Data",
+			"width": 150,
+		},
+		{
+			"label": _("Transfer Date"),
+			"fieldname": "transfer_date",
+			"fieldtype": "Date",
+			"width": 110,
+		},
+		{
+			"label": _("Total Transfer Qty"),
+			"fieldname": "transfer_qty",
+			"fieldtype": "Float",
+			"width": 130,
+		},
+		{
 			"label": _("Remaining Qty"),
 			"fieldname": "remaining_qty",
 			"fieldtype": "Float",
@@ -127,6 +145,39 @@ def _build_conditions(filters, item_alias="item"):
 		values["from_date"] = filters.from_date
 	if filters.get("to_date"):
 		conditions.append("main.posting_date <= %(to_date)s")
+		values["to_date"] = filters.to_date
+	if filters.get("do_number"):
+		conditions.append("main.custom_do_number like %(do_number)s")
+		values["do_number"] = f"%{filters.do_number}%"
+	if filters.get("item_code"):
+		conditions.append(f"{item_alias}.item_code = %(item_code)s")
+		values["item_code"] = filters.item_code
+	return " AND ".join(conditions), values
+
+
+def _build_transfer_conditions(filters, item_alias="item"):
+	"""Same idea as _build_conditions but adapted to Material Transfer's
+	actual schema: it dates itself by ``transaction_date`` (not
+	``posting_date``), has no ``is_return`` concept, and has no ``company``
+	column of its own -- company lives on the linked ``from_warehouse``, so
+	that filter joins through ``tabWarehouse`` instead of reading a column
+	directly off ``main``."""
+	conditions = [
+		"main.docstatus = 1",
+		"main.custom_do_number is not null",
+		"main.custom_do_number != ''",
+	]
+	values = {}
+	if filters.get("company"):
+		conditions.append(
+			"main.from_warehouse in (select name from `tabWarehouse` where company = %(company)s)"
+		)
+		values["company"] = filters.company
+	if filters.get("from_date"):
+		conditions.append("main.transaction_date >= %(from_date)s")
+		values["from_date"] = filters.from_date
+	if filters.get("to_date"):
+		conditions.append("main.transaction_date <= %(to_date)s")
 		values["to_date"] = filters.to_date
 	if filters.get("do_number"):
 		conditions.append("main.custom_do_number like %(do_number)s")
@@ -184,6 +235,30 @@ def _get_receipt_dates(purchase_row_names):
 	return {row.row_name: row.receipt_date for row in rows}
 
 
+def _get_transfer_rows(filters):
+	"""One row per Material Transfer Item under a DO Number -- a transfer
+	moves goods out of the DO's receiving location just like a sale does, so
+	it draws down the same remaining balance (see get_data's remaining_qty
+	comment). Guarded by has_column since Material Transfer is posawesome's
+	doctype, not this app's -- a bench without posawesome installed simply
+	sees no Transfer rows rather than an error."""
+	if not frappe.db.has_column("Material Transfer", "custom_do_number"):
+		return []
+	where_clause, values = _build_transfer_conditions(filters, item_alias="item")
+	return frappe.db.sql(
+		f"""
+		SELECT main.custom_do_number as do_number, item.item_code as item_code,
+		       item.item_name as item_name, item.qty as qty,
+		       main.transaction_date as posting_date, main.name as transfer_id
+		FROM `tabMaterial Transfer Item` item
+		INNER JOIN `tabMaterial Transfer` main ON main.name = item.parent
+		WHERE {where_clause}
+		""",
+		values,
+		as_dict=True,
+	)
+
+
 def _get_sales_rows(filters):
 	where_clause, values = _build_conditions(filters, item_alias="item")
 	return frappe.db.sql(
@@ -212,12 +287,14 @@ def get_data(filters):
 	purchase_rows = _get_purchase_rows(filters)
 	receipt_dates = _get_receipt_dates([row.row_name for row in purchase_rows])
 	sales_rows = _get_sales_rows(filters)
+	transfer_rows = _get_transfer_rows(filters)
 
-	# Group both sides by (DO Number, Item) -- one row per key in the final
-	# report. A DO+item can span more than one invoice on either side (e.g. a
-	# received batch sold across several customer invoices), so purchase_id /
-	# sales_id collect every distinct invoice touching that key rather than
-	# assuming exactly one.
+	# Group all three sides by (DO Number, Item) -- one row per key in the
+	# final report. A DO+item can span more than one document on any side
+	# (e.g. a received batch sold across several customer invoices, or moved
+	# in more than one Material Transfer), so purchase_id/sales_id/transfer_id
+	# collect every distinct document touching that key rather than assuming
+	# exactly one.
 	grouped = {}
 
 	def _bucket(do_number, item_code, item_name):
@@ -235,6 +312,9 @@ def get_data(filters):
 				"sales_ids": set(),
 				"sales_dates": set(),
 				"sales_qty": 0.0,
+				"transfer_ids": set(),
+				"transfer_dates": set(),
+				"transfer_qty": 0.0,
 			}
 		return grouped[key]
 
@@ -256,11 +336,19 @@ def get_data(filters):
 			bucket["sales_dates"].add(row.posting_date)
 		bucket["sales_qty"] += flt(row.qty)
 
+	for row in transfer_rows:
+		bucket = _bucket(row.do_number, row.item_code, row.item_name)
+		bucket["transfer_ids"].add(row.transfer_id)
+		if row.posting_date:
+			bucket["transfer_dates"].add(row.posting_date)
+		bucket["transfer_qty"] += flt(row.qty)
+
 	data = []
 	for bucket in grouped.values():
 		purchase_qty = bucket["purchase_qty"]
 		receipt_qty = bucket["purchase_receipt_qty"]
 		sales_qty = bucket["sales_qty"]
+		transfer_qty = bucket["transfer_qty"]
 		data.append(
 			{
 				"do_number": bucket["do_number"],
@@ -278,11 +366,16 @@ def get_data(filters):
 				"sales_id": ", ".join(sorted(bucket["sales_ids"])),
 				"sales_date": max(bucket["sales_dates"]) if bucket["sales_dates"] else None,
 				"sales_qty": sales_qty,
+				"transfer_id": ", ".join(sorted(bucket["transfer_ids"])),
+				"transfer_date": max(bucket["transfer_dates"]) if bucket["transfer_dates"] else None,
+				"transfer_qty": transfer_qty,
 				# Per explicit request: remaining is measured against what was
 				# actually *received*, not what was merely invoiced/ordered --
-				# you can't sell what never physically arrived, even if it was
-				# invoiced.
-				"remaining_qty": receipt_qty - sales_qty,
+				# you can't sell (or transfer out) what never physically arrived,
+				# even if it was invoiced. A transfer moves the batch to another
+				# warehouse just like a sale moves it to a customer, so it draws
+				# down the same remaining balance.
+				"remaining_qty": receipt_qty - sales_qty - transfer_qty,
 			}
 		)
 
