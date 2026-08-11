@@ -74,23 +74,50 @@ def _warehouse_condition(column, warehouse):
 	return "", {}
 
 
+def _resolve_return_warehouses(rows):
+	"""A return Sales Invoice leaves its own `set_warehouse` blank (only the
+	item rows carry a warehouse, and not reliably the selling branch's own --
+	it can be wherever the returned stock physically lands). The branch that
+	made the original sale is the one whose till the refund actually comes
+	back out of, so a return with no warehouse of its own inherits its
+	`return_against` invoice's warehouse instead. Mutates `warehouse` on each
+	row in place and returns the same list, dropping rows that still have no
+	resolvable warehouse (e.g. a return against a non-warehouse invoice)."""
+	missing = {row.return_against for row in rows if not row.warehouse and row.return_against}
+	if missing:
+		fallback = frappe._dict(
+			frappe.get_all(
+				"Sales Invoice",
+				filters={"name": ["in", list(missing)]},
+				fields=["name", "set_warehouse"],
+				as_list=True,
+			)
+		)
+		for row in rows:
+			if not row.warehouse and row.return_against:
+				row.warehouse = fallback.get(row.return_against)
+	return [row for row in rows if row.warehouse]
+
+
 def get_sales_invoices(company, warehouse, from_date, to_date):
-	wh_condition, wh_params = _warehouse_condition("si.set_warehouse", warehouse)
-	return frappe.db.sql(
-		f"""
+	rows = frappe.db.sql(
+		"""
 		SELECT si.name, si.set_warehouse AS warehouse, si.posting_date,
-		       si.grand_total, si.discount_amount, si.outstanding_amount
+		       si.grand_total, si.discount_amount, si.outstanding_amount,
+		       si.is_return, si.return_against
 		FROM `tabSales Invoice` si
 		WHERE si.docstatus = 1
 		  AND si.company = %(company)s
-		  AND si.set_warehouse IS NOT NULL AND si.set_warehouse != ''
 		  AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
-		  {wh_condition}
-		ORDER BY si.set_warehouse, si.posting_date, si.name
 		""",
-		{"company": company, "from_date": from_date, "to_date": to_date, **wh_params},
+		{"company": company, "from_date": from_date, "to_date": to_date},
 		as_dict=True,
 	)
+	rows = _resolve_return_warehouses(rows)
+	if warehouse:
+		rows = [row for row in rows if row.warehouse == warehouse]
+	rows.sort(key=lambda row: (row.warehouse, row.posting_date, row.name))
+	return rows
 
 
 def get_expense_claims(company, warehouse, from_date, to_date):
@@ -174,21 +201,21 @@ def get_opening_balances(company, warehouse, from_date):
 	show the full Sales / Fund Transfer / Expense / Deposit breakdown."""
 	balances = {}
 
-	wh_condition, wh_params = _warehouse_condition("si.set_warehouse", warehouse)
-	for row in frappe.db.sql(
-		f"""
-		SELECT si.set_warehouse AS warehouse, SUM(si.grand_total) AS amount
+	sales_rows = frappe.db.sql(
+		"""
+		SELECT si.name, si.set_warehouse AS warehouse, si.grand_total,
+		       si.is_return, si.return_against
 		FROM `tabSales Invoice` si
 		WHERE si.docstatus = 1 AND si.company = %(company)s
-		  AND si.set_warehouse IS NOT NULL AND si.set_warehouse != ''
 		  AND si.posting_date < %(from_date)s
-		  {wh_condition}
-		GROUP BY si.set_warehouse
 		""",
-		{"company": company, "from_date": from_date, **wh_params},
+		{"company": company, "from_date": from_date},
 		as_dict=True,
-	):
-		balances[row.warehouse] = balances.get(row.warehouse, 0.0) + flt(row.amount)
+	)
+	for row in _resolve_return_warehouses(sales_rows):
+		if warehouse and row.warehouse != warehouse:
+			continue
+		balances[row.warehouse] = balances.get(row.warehouse, 0.0) + flt(row.grand_total)
 
 	if frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
 		wh_condition, wh_params = _warehouse_condition("pe.custom_warehouse", warehouse)
@@ -308,6 +335,7 @@ def get_data(filters, from_date, to_date):
 						"date": current_date,
 						"sl": idx,
 						"particulars": inv.name,
+						"description": _("Return against {0}").format(inv.return_against) if inv.is_return else "",
 						"selling_amount": selling,
 						"discount_amount": discount,
 						"due_amount": due,
