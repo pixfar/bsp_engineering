@@ -22,11 +22,11 @@
  ],
  "fields": [
   {
-   "description": "Week runs Thursday → Wednesday.",
+   "description": "Any date range -- a single day, a few days, a full week, whatever this covers.",
    "fieldname": "start_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Start Date (Thursday)",
+   "label": "Start Date",
    "reqd": 1
   },
   {
@@ -37,7 +37,7 @@
    "fieldname": "end_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "End Date (Wednesday)",
+   "label": "End Date",
    "reqd": 1
   },
   {

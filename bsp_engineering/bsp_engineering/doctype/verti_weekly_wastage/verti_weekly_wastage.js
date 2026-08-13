@@ -8,9 +8,6 @@ frappe.ui.form.on('Verti Weekly Wastage', {
 	refresh(frm) {
 		setup_fetch_weekly_data_button(frm);
 	},
-	start_date(frm) {
-		default_end_date(frm);
-	},
 	total_weekly_work_kg(frm) {
 		calculate_wastage_figures(frm);
 	},
@@ -18,14 +15,6 @@ frappe.ui.form.on('Verti Weekly Wastage', {
 		calculate_wastage_figures(frm);
 	},
 });
-
-function default_end_date(frm) {
-	// Week runs Thursday -> Wednesday; suggest the end date once a start
-	// date is picked, the user can still change it before saving.
-	if (!frm.doc.start_date || frm.doc.end_date) return;
-	const end_date = frappe.datetime.add_days(frm.doc.start_date, 6);
-	frm.set_value('end_date', end_date);
-}
 
 function calculate_wastage_figures(frm) {
 	// Mirrors the server's own calculate_wastage_figures() (validate())

@@ -16,7 +16,6 @@ from bsp_engineering.bsp_engineering.utils.verti_salary import (
 ALLOWED_WASTAGE_RATE = 0.01  # 1%
 PENALTY_PER_KG = 20  # BDT per excess KG
 SALARY_COMPONENT = "Verti Wastage Deduction"
-WEEK_LENGTH_DAYS = 6  # Thursday -> Wednesday inclusive
 
 
 class VertiWeeklyWastage(Document):
@@ -25,19 +24,13 @@ class VertiWeeklyWastage(Document):
 		self.calculate_wastage_figures()
 
 	def validate_dates(self):
+		# Deliberately no Thursday/Wednesday or fixed-length constraint --
+		# the period covered is up to whoever fills this in (a day, a few
+		# days, a full week, whatever), only the ordering has to make sense.
 		if not (self.start_date and self.end_date):
 			return
-		start = getdate(self.start_date)
-		end = getdate(self.end_date)
-		if end < start:
+		if getdate(self.end_date) < getdate(self.start_date):
 			frappe.throw(_('End Date cannot be before Start Date.'))
-		# THURSDAY=3, WEDNESDAY=2 in Python's Monday=0..Sunday=6 weekday().
-		if start.weekday() != 3:
-			frappe.throw(_('Start Date {0} must be a Thursday.').format(self.start_date))
-		if end.weekday() != 2:
-			frappe.throw(_('End Date {0} must be a Wednesday.').format(self.end_date))
-		if (end - start).days != WEEK_LENGTH_DAYS:
-			frappe.throw(_('Start Date and End Date must be exactly one week apart (Thursday to Wednesday).'))
 
 	def calculate_wastage_figures(self):
 		self.allowed_wastage_kg = flt(self.total_weekly_work_kg) * ALLOWED_WASTAGE_RATE
