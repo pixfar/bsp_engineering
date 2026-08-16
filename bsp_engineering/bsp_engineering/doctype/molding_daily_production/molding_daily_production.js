@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Pixfar and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Verti Daily Production', {
+frappe.ui.form.on('Molding Daily Production', {
 	refresh(frm) {
 		setup_fetch_attendance_button(frm);
 	},
@@ -16,7 +16,7 @@ frappe.ui.form.on('Verti Daily Production', {
 	},
 });
 
-frappe.ui.form.on('Verti Daily Production Detail', {
+frappe.ui.form.on('Molding Daily Production Detail', {
 	point(frm) {
 		distribute_wage(frm);
 	},
@@ -70,8 +70,8 @@ function setup_fetch_attendance_button(frm) {
 
 		frappe.call({
 			method:
-				'bsp_engineering.bsp_engineering.doctype.verti_daily_production'
-				+ '.verti_daily_production.fetch_attendance',
+				'bsp_engineering.bsp_engineering.doctype.molding_daily_production'
+				+ '.molding_daily_production.fetch_attendance',
 			args: { date: frm.doc.date },
 			freeze: true,
 			freeze_message: __('Fetching attendance...'),

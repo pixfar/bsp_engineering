@@ -4,7 +4,7 @@
 const ALLOWED_WASTAGE_RATE = 0.01; // 1%
 const PENALTY_PER_KG = 20; // BDT per excess KG
 
-frappe.ui.form.on('Verti Weekly Wastage', {
+frappe.ui.form.on('Molding Weekly Wastage', {
 	refresh(frm) {
 		setup_fetch_weekly_data_button(frm);
 	},
@@ -18,7 +18,7 @@ frappe.ui.form.on('Verti Weekly Wastage', {
 
 function calculate_wastage_figures(frm) {
 	// Mirrors the server's own calculate_wastage_figures() (validate())
-	// exactly -- see verti_daily_production.js's identical note on why this
+	// exactly -- see molding_daily_production.js's identical note on why this
 	// duplication is fine: it's a live-preview convenience only, the server
 	// always recalculates from scratch on save.
 	const allowed = flt(frm.doc.total_weekly_work_kg) * ALLOWED_WASTAGE_RATE;
@@ -41,8 +41,8 @@ function setup_fetch_weekly_data_button(frm) {
 
 		frappe.call({
 			method:
-				'bsp_engineering.bsp_engineering.doctype.verti_weekly_wastage'
-				+ '.verti_weekly_wastage.fetch_weekly_data',
+				'bsp_engineering.bsp_engineering.doctype.molding_weekly_wastage'
+				+ '.molding_weekly_wastage.fetch_weekly_data',
 			args: {
 				start_date: frm.doc.start_date,
 				end_date: frm.doc.end_date,

@@ -8,17 +8,17 @@ from frappe.query_builder import Criterion
 from frappe.query_builder.functions import Sum
 from frappe.utils import flt, getdate
 
-from bsp_engineering.bsp_engineering.utils.verti_salary import (
+from bsp_engineering.bsp_engineering.utils.molding_salary import (
 	cancel_additional_salaries,
 	create_additional_salaries_or_rollback,
 )
 
 ALLOWED_WASTAGE_RATE = 0.01  # 1%
 PENALTY_PER_KG = 20  # BDT per excess KG
-SALARY_COMPONENT = "Verti Wastage Deduction"
+SALARY_COMPONENT = "Molding Wastage Deduction"
 
 
-class VertiWeeklyWastage(Document):
+class MoldingWeeklyWastage(Document):
 	def validate(self):
 		self.validate_dates()
 		self.calculate_wastage_figures()
@@ -54,7 +54,7 @@ class VertiWeeklyWastage(Document):
 			frappe.throw(
 				_(
 					'No worker points found between {0} and {1} '
-					'(submitted Verti Daily Production records) to distribute the penalty against.'
+					'(submitted Molding Daily Production records) to distribute the penalty against.'
 				).format(self.start_date, self.end_date)
 			)
 
@@ -75,11 +75,11 @@ class VertiWeeklyWastage(Document):
 
 
 def get_weekly_points(start_date, end_date):
-	"""{employee: total point} across every submitted Verti Daily Production
+	"""{employee: total point} across every submitted Molding Daily Production
 	whose date falls within [start_date, end_date] -- each worker's share of
 	that week's total is what the wastage penalty gets split by."""
-	Production = frappe.qb.DocType('Verti Daily Production')
-	Detail = frappe.qb.DocType('Verti Daily Production Detail')
+	Production = frappe.qb.DocType('Molding Daily Production')
+	Detail = frappe.qb.DocType('Molding Daily Production Detail')
 
 	rows = (
 		frappe.qb.from_(Detail)
@@ -102,12 +102,12 @@ def get_weekly_points(start_date, end_date):
 
 @frappe.whitelist()
 def fetch_weekly_data(start_date, end_date):
-	"""Sum total_work_kg across every submitted Verti Daily Production
+	"""Sum total_work_kg across every submitted Molding Daily Production
 	between start_date and end_date, for the "Fetch Weekly Data" button."""
 	if not (start_date and end_date):
 		frappe.throw(_('Both Start Date and End Date are required.'))
 
-	Production = frappe.qb.DocType('Verti Daily Production')
+	Production = frappe.qb.DocType('Molding Daily Production')
 	result = (
 		frappe.qb.from_(Production)
 		.select(Sum(Production.total_work_kg).as_('total'))

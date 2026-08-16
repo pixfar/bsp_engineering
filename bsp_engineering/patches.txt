@@ -23,5 +23,5 @@ bsp_engineering.patches.v1_0.restore_invoice_payment_method_split_fields
 bsp_engineering.patches.v1_0.add_bsp_daily_deposit_payment_link
 bsp_engineering.patches.v1_0.add_fund_transfer_marker
 bsp_engineering.patches.v1_0.add_account_warehouse_link
-bsp_engineering.patches.v1_0.setup_verti_salary_system
+bsp_engineering.patches.v1_0.setup_molding_salary_system
 bsp_engineering.patches.v1_0.add_do_number_index

@@ -1,5 +1,5 @@
-"""Shared Additional Salary creation/reversal helpers for the Verti (piece-rate)
-Salary System -- used by both Verti Daily Production (wage) and Verti Weekly
+"""Shared Additional Salary creation/reversal helpers for the Molding (piece-rate)
+Salary System -- used by both Molding Daily Production (wage) and Molding Weekly
 Wastage (penalty deduction), so the two doctypes' on_submit/on_cancel logic
 stay in sync instead of drifting apart.
 """
@@ -54,10 +54,10 @@ def create_additional_salaries_or_rollback(rows, source_doctype, source_name):
 	(after rollback) on failure, with a message naming exactly which
 	employee/row caused it.
 	"""
-	# Autonamed docnames (e.g. "VDP-2026-00001") contain hyphens, which MariaDB's
+	# Autonamed docnames (e.g. "MDP-2026-00001") contain hyphens, which MariaDB's
 	# unquoted `SAVEPOINT <name>` syntax rejects -- sanitize to a safe identifier
 	# instead of quoting, since quoting rules differ across DB backends.
-	raw_savepoint = f"verti_salary_{source_doctype.lower().replace(' ', '_')}_{source_name}"
+	raw_savepoint = f"molding_salary_{source_doctype.lower().replace(' ', '_')}_{source_name}"
 	savepoint = re.sub(r"[^0-9a-zA-Z_]", "_", raw_savepoint)
 	frappe.db.savepoint(savepoint)
 	created = []
@@ -78,7 +78,7 @@ def create_additional_salaries_or_rollback(rows, source_doctype, source_name):
 	except Exception as error:
 		frappe.db.rollback(save_point=savepoint)
 		frappe.log_error(
-			title=f"Verti Salary: Additional Salary creation failed for {source_doctype} {source_name}",
+			title=f"Molding Salary: Additional Salary creation failed for {source_doctype} {source_name}",
 			message=frappe.get_traceback(),
 		)
 		frappe.throw(
@@ -94,7 +94,7 @@ def create_additional_salaries_or_rollback(rows, source_doctype, source_name):
 def cancel_additional_salaries(source_doctype, source_name):
 	"""Cancel every submitted Additional Salary this document created (via
 	ref_doctype/ref_docname), mirroring the source document's own cancel --
-	called from on_cancel so reversing a Verti Daily Production or Verti
+	called from on_cancel so reversing a Molding Daily Production or Molding
 	Weekly Wastage also reverses the payroll entries it produced, not just
 	its own docstatus."""
 	names = frappe.get_all(

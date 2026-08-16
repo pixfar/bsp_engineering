@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class VertiDailyProductionDetail(Document):
+class MoldingDailyProductionDetail(Document):
 	pass

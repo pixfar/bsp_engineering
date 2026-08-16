@@ -25,16 +25,17 @@ AUTO_SUBMIT_EXCLUDED_DOCTYPES = frozenset(
 		'Salary Structure Assignment',
 		'Salary Slip',
 		'Leave Application',
-		# Verti (piece-rate) Salary System: Verti Daily Production and Verti
-		# Weekly Wastage are meant to be built up as a draft across several
-		# saves (e.g. the "Fetch Attendance" / "Fetch Weekly Data" buttons,
-		# manual row edits) before the user deliberately reviews the computed
-		# wage/penalty figures and submits -- auto-submitting on first save
-		# would create Additional Salary entries before that review happens.
-		'Verti Daily Production',
-		'Verti Weekly Wastage',
+		# Molding (piece-rate) Salary System: Molding Daily Production and
+		# Molding Weekly Wastage are meant to be built up as a draft across
+		# several saves (e.g. the "Fetch Attendance" / "Fetch Weekly Data"
+		# buttons, manual row edits) before the user deliberately reviews the
+		# computed wage/penalty figures and submits -- auto-submitting on
+		# first save would create Additional Salary entries before that
+		# review happens.
+		'Molding Daily Production',
+		'Molding Weekly Wastage',
 		# Same race as Payment Entry above: create_additional_salary() in
-		# bsp_engineering/utils/verti_salary.py does insert() then submit()
+		# bsp_engineering/utils/molding_salary.py does insert() then submit()
 		# in code. Auto-submitting inside insert() leaves that explicit
 		# submit() call operating on an already-submitted doc, which throws
 		# UpdateAfterSubmitError.

@@ -7,16 +7,16 @@ from frappe.model.document import Document
 from frappe.query_builder import Criterion
 from frappe.utils import add_days, flt, getdate
 
-from bsp_engineering.bsp_engineering.utils.verti_salary import (
+from bsp_engineering.bsp_engineering.utils.molding_salary import (
 	cancel_additional_salaries,
 	create_additional_salaries_or_rollback,
 )
 
 WEDNESDAY = 2  # Python's date.weekday(): Monday=0 ... Sunday=6
-SALARY_COMPONENT = "Verti Daily Wage"
+SALARY_COMPONENT = "Molding Daily Wage"
 
 
-class VertiDailyProduction(Document):
+class MoldingDailyProduction(Document):
 	def validate(self):
 		self.calculate_total_wage()
 		self.distribute_wage()
@@ -79,7 +79,7 @@ def get_upcoming_weekday(from_date, weekday):
 @frappe.whitelist()
 def fetch_attendance(date):
 	"""Employees marked Present in standard Attendance for `date`, each with
-	their current Verti Point, for the "Fetch Attendance" button to populate
+	their current Molding Point, for the "Fetch Attendance" button to populate
 	the child table with."""
 	if not date:
 		frappe.throw(_("Date is required to fetch attendance."))
@@ -94,7 +94,7 @@ def fetch_attendance(date):
 		.select(
 			Attendance.employee,
 			Employee.employee_name,
-			Employee.custom_verti_point,
+			Employee.custom_molding_point,
 		)
 		.where(
 			Criterion.all(
@@ -116,7 +116,7 @@ def fetch_attendance(date):
 		{
 			"employee": row.employee,
 			"employee_name": row.employee_name,
-			"point": flt(row.custom_verti_point),
+			"point": flt(row.custom_molding_point),
 		}
 		for row in rows
 	]
