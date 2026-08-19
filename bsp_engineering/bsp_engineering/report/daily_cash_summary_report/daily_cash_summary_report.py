@@ -3,26 +3,37 @@
 
 """Warehouse-wise, day-wise cash summary matching the branch cash-box
 workflow: each branch sells during the day, receives fund transfers into
-the till, pays small local expenses out of the till, and deposits what's
-left to the bank (typically the next morning).
+the till, pays small local expenses and local purchases out of the till,
+and deposits what's left to the bank (typically the next morning).
 
 For each warehouse and day:
 - Sales Collection Summary -- every Sales Invoice on its own line, plus Total.
+  Sales Returns (is_return=1) are included with a negative amount, so a
+  refund correctly *reduces* the day's collection/balance -- cash going back
+  out to the customer.
+- Purchase Summary -- every Purchase Invoice on its own line, plus Total.
+  Purchase Returns (is_return=1) are included with a negative amount, so a
+  supplier refund correctly *reduces* the day's purchase outflow, i.e.
+  *increases* the balance -- cash coming back into the till.
 - Fund Transfer -- Internal Transfer Payment Entries attributed to the
   warehouse via custom_warehouse (custom_fund_transfer=1), plus Total.
 - Cash Out Outflow -- every Expense Claim on its own line, plus Total Expense.
 - BSP Deposit -- every actual BSP Daily Deposit on its own line, plus Total
   Deposited, plus an "Expected Deposit" reference line (= Income, i.e.
-  Collection + Fund Transfer - Expense) so a branch that deposits correctly
-  reconciles to zero.
+  Collection + Fund Transfer - Expense - Purchase Paid) so a branch that
+  deposits correctly reconciles to zero.
 - Opening/Closing Balance, carried forward day to day per warehouse.
   Closing Balance = Opening Balance + Income - Bank Deposit, where Income is
-  Collection + Fund Transfer - Expense -- so on a day where the branch
-  deposits exactly what it should, nothing carries over.
+  Collection + Fund Transfer - Expense - Purchase Paid -- so on a day where
+  the branch deposits exactly what it should, nothing carries over.
 
-"Selling Amount" is the invoice's gross total before discount
-(grand_total + discount_amount); "Received Amount" (collection) is what's
-been collected against that invoice so far (grand_total - outstanding_amount).
+"Selling/Purchase Amount" is the invoice's gross total before discount
+(grand_total + discount_amount); "Received/Paid Amount" (collection) is what
+has been collected/paid against that invoice so far
+(grand_total - outstanding_amount). A return invoice's grand_total is
+negative, so both figures -- and everything derived from them -- net out
+automatically once the return is entered; no separate "return" bookkeeping
+is needed.
 """
 
 import frappe
@@ -56,9 +67,11 @@ def get_columns():
 		{"label": _("Description"), "fieldname": "description", "fieldtype": "Data", "width": 170},
 		{"label": _("Reference No"), "fieldname": "reference_no", "fieldtype": "Data", "width": 140},
 		{"label": _("Selling Amount"), "fieldname": "selling_amount", "fieldtype": "Currency", "width": 120},
+		{"label": _("Purchase Amount"), "fieldname": "purchase_amount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Discount Amount"), "fieldname": "discount_amount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Due Amount"), "fieldname": "due_amount", "fieldtype": "Currency", "width": 110},
 		{"label": _("Received Amount"), "fieldname": "received_amount", "fieldtype": "Currency", "width": 130},
+		{"label": _("Paid Amount"), "fieldname": "paid_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Fund Transfer"), "fieldname": "fund_transfer_amount", "fieldtype": "Currency", "width": 150},
 		{"label": _("Expense Amount"), "fieldname": "expense_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Deposit Amount"), "fieldname": "deposit_amount", "fieldtype": "Currency", "width": 130},
@@ -74,20 +87,21 @@ def _warehouse_condition(column, warehouse):
 	return "", {}
 
 
-def _resolve_return_warehouses(rows):
-	"""A return Sales Invoice leaves its own `set_warehouse` blank (only the
-	item rows carry a warehouse, and not reliably the selling branch's own --
-	it can be wherever the returned stock physically lands). The branch that
-	made the original sale is the one whose till the refund actually comes
-	back out of, so a return with no warehouse of its own inherits its
-	`return_against` invoice's warehouse instead. Mutates `warehouse` on each
-	row in place and returns the same list, dropping rows that still have no
-	resolvable warehouse (e.g. a return against a non-warehouse invoice)."""
+def _resolve_return_warehouses(rows, doctype="Sales Invoice"):
+	"""A return Sales/Purchase Invoice leaves its own `set_warehouse` blank
+	(only the item rows carry a warehouse, and not reliably the selling/
+	receiving branch's own -- it can be wherever the returned stock
+	physically lands). The branch that made the original transaction is the
+	one whose till the refund actually flows through, so a return with no
+	warehouse of its own inherits its `return_against` invoice's warehouse
+	instead. Mutates `warehouse` on each row in place and returns the same
+	list, dropping rows that still have no resolvable warehouse (e.g. a
+	return against a non-warehouse invoice)."""
 	missing = {row.return_against for row in rows if not row.warehouse and row.return_against}
 	if missing:
 		fallback = frappe._dict(
 			frappe.get_all(
-				"Sales Invoice",
+				doctype,
 				filters={"name": ["in", list(missing)]},
 				fields=["name", "set_warehouse"],
 				as_list=True,
@@ -114,6 +128,31 @@ def get_sales_invoices(company, warehouse, from_date, to_date):
 		as_dict=True,
 	)
 	rows = _resolve_return_warehouses(rows)
+	if warehouse:
+		rows = [row for row in rows if row.warehouse == warehouse]
+	rows.sort(key=lambda row: (row.warehouse, row.posting_date, row.name))
+	return rows
+
+
+def get_purchase_invoices(company, warehouse, from_date, to_date):
+	"""Mirrors get_sales_invoices() -- same shape, same return handling, but
+	for cash paid *out* of the till for local purchases. Purchase Returns
+	(is_return=1) come back with a negative grand_total/outstanding_amount,
+	so they net out of the totals below automatically."""
+	rows = frappe.db.sql(
+		"""
+		SELECT pi.name, pi.set_warehouse AS warehouse, pi.posting_date,
+		       pi.grand_total, pi.discount_amount, pi.outstanding_amount,
+		       pi.is_return, pi.return_against
+		FROM `tabPurchase Invoice` pi
+		WHERE pi.docstatus = 1
+		  AND pi.company = %(company)s
+		  AND pi.posting_date BETWEEN %(from_date)s AND %(to_date)s
+		""",
+		{"company": company, "from_date": from_date, "to_date": to_date},
+		as_dict=True,
+	)
+	rows = _resolve_return_warehouses(rows, doctype="Purchase Invoice")
 	if warehouse:
 		rows = [row for row in rows if row.warehouse == warehouse]
 	rows.sort(key=lambda row: (row.warehouse, row.posting_date, row.name))
@@ -196,9 +235,18 @@ def get_fund_transfers(company, warehouse, from_date, to_date):
 
 def get_opening_balances(company, warehouse, from_date):
 	"""Opening Balance = Sales Invoice amounts + Fund Transfer income before
-	from_date, minus Bank Deposits before from_date. Expenses are not part of
-	the seed value -- the day-by-day rows within the selected range already
-	show the full Sales / Fund Transfer / Expense / Deposit breakdown."""
+	from_date, minus Purchase Invoice amounts and Bank Deposits before
+	from_date. Expenses are not part of the seed value -- the day-by-day rows
+	within the selected range already show the full Sales / Purchase /
+	Fund Transfer / Expense / Deposit breakdown.
+
+	Like the day-by-day rows, this uses each invoice's full grand_total
+	rather than netting off outstanding_amount -- a deliberate simplification
+	carried over from the original Sales-only version: it treats every past
+	invoice as settled by the time you're looking back at it, rather than
+	trying to reconstruct exactly which day a since-collected/paid due amount
+	actually moved. Returns (negative grand_total) still net out correctly
+	either way."""
 	balances = {}
 
 	sales_rows = frappe.db.sql(
@@ -216,6 +264,22 @@ def get_opening_balances(company, warehouse, from_date):
 		if warehouse and row.warehouse != warehouse:
 			continue
 		balances[row.warehouse] = balances.get(row.warehouse, 0.0) + flt(row.grand_total)
+
+	purchase_rows = frappe.db.sql(
+		"""
+		SELECT pi.name, pi.set_warehouse AS warehouse, pi.grand_total,
+		       pi.is_return, pi.return_against
+		FROM `tabPurchase Invoice` pi
+		WHERE pi.docstatus = 1 AND pi.company = %(company)s
+		  AND pi.posting_date < %(from_date)s
+		""",
+		{"company": company, "from_date": from_date},
+		as_dict=True,
+	)
+	for row in _resolve_return_warehouses(purchase_rows, doctype="Purchase Invoice"):
+		if warehouse and row.warehouse != warehouse:
+			continue
+		balances[row.warehouse] = balances.get(row.warehouse, 0.0) - flt(row.grand_total)
 
 	if frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
 		wh_condition, wh_params = _warehouse_condition("pe.custom_warehouse", warehouse)
@@ -282,11 +346,14 @@ def get_data(filters, from_date, to_date):
 	def ensure_group(key):
 		return groups.setdefault(
 			key,
-			{"sales": [], "expenses": [], "deposits": [], "fund_transfers": []},
+			{"sales": [], "purchases": [], "expenses": [], "deposits": [], "fund_transfers": []},
 		)
 
 	for inv in get_sales_invoices(company, warehouse, from_date, to_date):
 		ensure_group((inv.warehouse, inv.posting_date))["sales"].append(inv)
+
+	for inv in get_purchase_invoices(company, warehouse, from_date, to_date):
+		ensure_group((inv.warehouse, inv.posting_date))["purchases"].append(inv)
 
 	for row in get_expense_claims(company, warehouse, from_date, to_date):
 		ensure_group((row.warehouse, row.posting_date))["expenses"].append(row)
@@ -343,6 +410,31 @@ def get_data(filters, from_date, to_date):
 					})
 				data.append(_bold_row(wh, current_date, _("Total"), **sales_total))
 
+			purchase_total = {"purchase_amount": 0.0, "discount_amount": 0.0, "due_amount": 0.0, "paid_amount": 0.0}
+			if group["purchases"]:
+				data.append(_section_title(wh, current_date, _("Purchase Summary")))
+				for idx, inv in enumerate(group["purchases"], start=1):
+					purchase_amount = flt(inv.grand_total) + flt(inv.discount_amount)
+					discount = flt(inv.discount_amount)
+					due = flt(inv.outstanding_amount)
+					paid = flt(inv.grand_total) - flt(inv.outstanding_amount)
+					purchase_total["purchase_amount"] += purchase_amount
+					purchase_total["discount_amount"] += discount
+					purchase_total["due_amount"] += due
+					purchase_total["paid_amount"] += paid
+					data.append({
+						"warehouse": wh,
+						"date": current_date,
+						"sl": idx,
+						"particulars": inv.name,
+						"description": _("Return against {0}").format(inv.return_against) if inv.is_return else "",
+						"purchase_amount": purchase_amount,
+						"discount_amount": discount,
+						"due_amount": due,
+						"paid_amount": paid,
+					})
+				data.append(_bold_row(wh, current_date, _("Total"), **purchase_total))
+
 			fund_transfer_total = 0.0
 			if group["fund_transfers"]:
 				data.append(_section_title(wh, current_date, _("Fund Transfer")))
@@ -384,7 +476,12 @@ def get_data(filters, from_date, to_date):
 					})
 				data.append(_bold_row(wh, current_date, _("Total Expense"), expense_amount=expense_total))
 
-			income = sales_total["received_amount"] + fund_transfer_total - expense_total
+			income = (
+				sales_total["received_amount"]
+				+ fund_transfer_total
+				- expense_total
+				- purchase_total["paid_amount"]
+			)
 			deposit_total = 0.0
 			data.append(_section_title(wh, current_date, _("BSP Deposit")))
 			if group["deposits"]:
@@ -404,7 +501,7 @@ def get_data(filters, from_date, to_date):
 			data.append(_bold_row(
 				wh,
 				current_date,
-				_("Expected Deposit (Collection + Fund Transfer - Expense)"),
+				_("Expected Deposit (Collection + Fund Transfer - Expense - Purchase Paid)"),
 				deposit_amount=income,
 			))
 
