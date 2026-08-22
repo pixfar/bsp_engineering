@@ -51,6 +51,10 @@ jobs:
             {
               "url": "https://github.com/pixfar/POS-Awesome-V15",
               "branch": "master"
+            },
+            {
+              "url": "https://github.com/frappe/lending.git",
+              "branch": "version-15"
             }
           ]'
 
