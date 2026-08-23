@@ -36,6 +36,7 @@ fixtures = [
     { "dt": "Print Format", "filters": [["name", "like", "BSP%"]] },
     { "dt": "Workflow State" },
     { "dt": "Workflow" },
+    { "dt": "Role", "filters": [["name", "in", ["BSP Admin"]]] },
 ]
 
 # Each item in the list will be shown as an app in the apps page
