@@ -40,6 +40,14 @@ def get_columns():
 			"width": 200,
 		},
 		{
+			# Weighted average across every Purchase Invoice line grouped into this
+			# DO+item row -- see get_data's purchase_amount / purchase_qty comment.
+			"label": _("Rate"),
+			"fieldname": "rate",
+			"fieldtype": "Currency",
+			"width": 110,
+		},
+		{
 			"label": _("Purchase ID"),
 			"fieldname": "purchase_id",
 			"fieldtype": "Data",
@@ -80,6 +88,12 @@ def get_columns():
 			"fieldname": "undelivered_qty",
 			"fieldtype": "Float",
 			"width": 130,
+		},
+		{
+			"label": _("Undelivered Amount"),
+			"fieldname": "undelivered_amount",
+			"fieldtype": "Currency",
+			"width": 150,
 		},
 		{
 			"label": _("Sales ID"),
@@ -201,6 +215,7 @@ def _get_purchase_rows(filters):
 		SELECT main.custom_do_number as do_number, item.item_code as item_code,
 		       item.item_name as item_name, item.name as row_name,
 		       item.qty as qty, item.received_qty as received_qty,
+		       item.amount as amount,
 		       main.update_stock as update_stock, main.posting_date as posting_date,
 		       main.name as purchase_id
 		FROM `tabPurchase Invoice Item` item
@@ -307,6 +322,7 @@ def get_data(filters):
 				"purchase_ids": set(),
 				"purchase_dates": set(),
 				"purchase_qty": 0.0,
+				"purchase_amount": 0.0,
 				"purchase_receipt_dates": set(),
 				"purchase_receipt_qty": 0.0,
 				"sales_ids": set(),
@@ -324,6 +340,7 @@ def get_data(filters):
 		if row.posting_date:
 			bucket["purchase_dates"].add(row.posting_date)
 		bucket["purchase_qty"] += flt(row.qty)
+		bucket["purchase_amount"] += flt(row.amount)
 		bucket["purchase_receipt_qty"] += row["effective_received_qty"]
 		receipt_date = receipt_dates.get(row.row_name)
 		if receipt_date:
@@ -349,11 +366,17 @@ def get_data(filters):
 		receipt_qty = bucket["purchase_receipt_qty"]
 		sales_qty = bucket["sales_qty"]
 		transfer_qty = bucket["transfer_qty"]
+		undelivered_qty = purchase_qty - receipt_qty
+		# Weighted average rate across every Purchase Invoice line grouped into
+		# this DO+item row, since the same item can be purchased at different
+		# rates across separate invoices under one DO Number.
+		rate = flt(bucket["purchase_amount"]) / purchase_qty if purchase_qty else 0.0
 		data.append(
 			{
 				"do_number": bucket["do_number"],
 				"item_code": bucket["item_code"],
 				"item_name": bucket["item_name"],
+				"rate": rate,
 				"purchase_id": ", ".join(sorted(bucket["purchase_ids"])),
 				"purchase_date": max(bucket["purchase_dates"]) if bucket["purchase_dates"] else None,
 				"purchase_qty": purchase_qty,
@@ -362,7 +385,8 @@ def get_data(filters):
 				),
 				"purchase_receipt_qty": receipt_qty,
 				"received_status": _receipt_status(purchase_qty, receipt_qty),
-				"undelivered_qty": purchase_qty - receipt_qty,
+				"undelivered_qty": undelivered_qty,
+				"undelivered_amount": undelivered_qty * rate,
 				"sales_id": ", ".join(sorted(bucket["sales_ids"])),
 				"sales_date": max(bucket["sales_dates"]) if bucket["sales_dates"] else None,
 				"sales_qty": sales_qty,
