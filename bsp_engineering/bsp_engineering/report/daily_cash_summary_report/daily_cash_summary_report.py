@@ -234,91 +234,50 @@ def get_fund_transfers(company, warehouse, from_date, to_date):
 
 
 def get_opening_balances(company, warehouse, from_date):
-	"""Opening Balance = Sales Invoice amounts + Fund Transfer income before
-	from_date, minus Purchase Invoice amounts and Bank Deposits before
-	from_date. Expenses are not part of the seed value -- the day-by-day rows
-	within the selected range already show the full Sales / Purchase /
-	Fund Transfer / Expense / Deposit breakdown.
+	"""Opening Balance for from_date = the Closing Balance carried forward from
+	every prior day, using the *exact* same formula as the day-by-day rows
+	(see module docstring):
+	    Income = Collection (received) + Fund Transfer - Expense - Purchase Paid
+	    Balance += Income - Deposit
+	compounded over all history strictly before from_date.
 
-	Like the day-by-day rows, this uses each invoice's full grand_total
-	rather than netting off outstanding_amount -- a deliberate simplification
-	carried over from the original Sales-only version: it treats every past
-	invoice as settled by the time you're looking back at it, rather than
-	trying to reconstruct exactly which day a since-collected/paid due amount
-	actually moved. Returns (negative grand_total) still net out correctly
-	either way."""
+	Reuses get_sales_invoices/get_purchase_invoices/get_expense_claims/
+	get_deposits/get_fund_transfers themselves (same warehouse resolution,
+	same filters) instead of re-deriving the same SQL, so this can't drift
+	from the day-by-day math again. It previously did drift in two ways: it
+	summed each Sales/Purchase Invoice's full grand_total instead of netting
+	off outstanding_amount (received/paid), and it omitted Expense Claims
+	entirely -- both silently inflated the seeded opening balance the further
+	the report was viewed from a warehouse's very first transaction, most
+	visibly in the single-day PDF (daily_cash_summary_pdf.py) which relies on
+	this function alone with no day-by-day compounding to correct it."""
+	from_date = getdate(from_date)
+	epoch = getdate("1900-01-01")
+	if from_date <= epoch:
+		return {}
+	cutoff = add_days(from_date, -1)
+
 	balances = {}
 
-	sales_rows = frappe.db.sql(
-		"""
-		SELECT si.name, si.set_warehouse AS warehouse, si.grand_total,
-		       si.is_return, si.return_against
-		FROM `tabSales Invoice` si
-		WHERE si.docstatus = 1 AND si.company = %(company)s
-		  AND si.posting_date < %(from_date)s
-		""",
-		{"company": company, "from_date": from_date},
-		as_dict=True,
+	def apply(rows, amount_fn, sign):
+		for row in rows:
+			if not row.warehouse:
+				continue
+			balances[row.warehouse] = balances.get(row.warehouse, 0.0) + sign * amount_fn(row)
+
+	apply(
+		get_sales_invoices(company, warehouse, epoch, cutoff),
+		lambda row: flt(row.grand_total) - flt(row.outstanding_amount),
+		1,
 	)
-	for row in _resolve_return_warehouses(sales_rows):
-		if warehouse and row.warehouse != warehouse:
-			continue
-		balances[row.warehouse] = balances.get(row.warehouse, 0.0) + flt(row.grand_total)
-
-	purchase_rows = frappe.db.sql(
-		"""
-		SELECT pi.name, pi.set_warehouse AS warehouse, pi.grand_total,
-		       pi.is_return, pi.return_against
-		FROM `tabPurchase Invoice` pi
-		WHERE pi.docstatus = 1 AND pi.company = %(company)s
-		  AND pi.posting_date < %(from_date)s
-		""",
-		{"company": company, "from_date": from_date},
-		as_dict=True,
+	apply(
+		get_purchase_invoices(company, warehouse, epoch, cutoff),
+		lambda row: flt(row.grand_total) - flt(row.outstanding_amount),
+		-1,
 	)
-	for row in _resolve_return_warehouses(purchase_rows, doctype="Purchase Invoice"):
-		if warehouse and row.warehouse != warehouse:
-			continue
-		balances[row.warehouse] = balances.get(row.warehouse, 0.0) - flt(row.grand_total)
-
-	if frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
-		wh_condition, wh_params = _warehouse_condition("pe.custom_warehouse", warehouse)
-		fund_transfer_filter = ""
-		if frappe.get_meta("Payment Entry").has_field("custom_fund_transfer"):
-			fund_transfer_filter = "AND IFNULL(pe.custom_fund_transfer, 0) = 1"
-		for row in frappe.db.sql(
-			f"""
-			SELECT pe.custom_warehouse AS warehouse, SUM(pe.paid_amount) AS amount
-			FROM `tabPayment Entry` pe
-			WHERE pe.docstatus = 1 AND pe.company = %(company)s
-			  AND pe.payment_type = 'Internal Transfer'
-			  AND pe.custom_warehouse IS NOT NULL AND pe.custom_warehouse != ''
-			  AND pe.posting_date < %(from_date)s
-			  {fund_transfer_filter}
-			  {wh_condition}
-			GROUP BY pe.custom_warehouse
-			""",
-			{"company": company, "from_date": from_date, **wh_params},
-			as_dict=True,
-		):
-			balances[row.warehouse] = balances.get(row.warehouse, 0.0) + flt(row.amount)
-
-	wh_condition, wh_params = _warehouse_condition("dd.warehouse", warehouse)
-	for row in frappe.db.sql(
-		f"""
-		SELECT dd.warehouse AS warehouse, SUM(dd.amount) AS amount
-		FROM `tabBSP Daily Deposit` dd
-		INNER JOIN `tabWarehouse` wh ON wh.name = dd.warehouse
-		WHERE dd.docstatus = 1 AND wh.company = %(company)s
-		  AND dd.warehouse IS NOT NULL AND dd.warehouse != ''
-		  AND dd.posting_date < %(from_date)s
-		  {wh_condition}
-		GROUP BY dd.warehouse
-		""",
-		{"company": company, "from_date": from_date, **wh_params},
-		as_dict=True,
-	):
-		balances[row.warehouse] = balances.get(row.warehouse, 0.0) - flt(row.amount)
+	apply(get_fund_transfers(company, warehouse, epoch, cutoff), lambda row: flt(row.amount), 1)
+	apply(get_expense_claims(company, warehouse, epoch, cutoff), lambda row: flt(row.grand_total), -1)
+	apply(get_deposits(company, warehouse, epoch, cutoff), lambda row: flt(row.amount), -1)
 
 	return balances
 
