@@ -1,25 +1,21 @@
 # Copyright (c) 2026, Pixfar and contributors
 # For license information, please see license.txt
 
-"""Showroom-wise Low Stock & Stock Summary Report ("For Dalai Order").
+"""Production Requirement Report -- a fixed-warehouse copy of Low Stock and
+Stock Summary Report ("For Dalai Order"). Same item universe, same Low
+Qty/Stock/Total columns and same red "needs a Dalai order" flag, but instead
+of a warehouse picker it always shows exactly these three warehouses, in
+this fixed order, since this report exists specifically to look at
+production-feeder stock:
 
-Low Stock Alert Report already lists individual (item, warehouse) rows that
-are currently below their configured threshold. This report instead shows
-the full, at-a-glance picture per item -- for every warehouse that has a
-Low Stock Qty configured on any item (or the warehouses explicitly picked in
-the filter), a "Low Qty" / "Stock" column pair, plus a Total Low Qty and
-Total Stock across those columns. It lists every item that has at least one
-Item Low Stock Alert row configured (the same universe Low Stock Alert
-Report draws from), not just the ones currently short -- the point is to see
-every tracked item's status at a glance, with Total Stock flagged (in red,
-client-side) whenever it has fallen below Total Low Qty, rather than
-filtering rows out entirely.
+    Noakhali Karkhana - BSP, Konapara Service Center - BSP, Store Room - BSP
+
+See low_stock_and_stock_summary_report.py for the full column/data shape
+this mirrors.
 
 NOTE: the Report doctype's own "Add Total Row" checkbox must stay OFF for
-this report. When it's on, Frappe's report view assumes the *last* row
-returned by execute() is a special grand-total row and silently splices it
-out of the data before rendering -- since this report doesn't emit one in
-that shape, that was corrupting the row/column alignment on every load.
+this report, for the same reason as the report it's copied from -- see that
+file's note.
 """
 
 import frappe
@@ -27,42 +23,38 @@ from frappe import _
 from frappe.query_builder import DocType
 from frappe.utils import flt
 
+# Fixed, in display order -- not user-selectable, unlike the report this is
+# copied from.
+FIXED_WAREHOUSES = [
+	"Noakhali Karkhana - BSP",
+	"Konapara Service Center - BSP",
+	"Store Room - BSP",
+]
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
-	warehouses = get_warehouses(filters)
+	warehouses = get_warehouses()
 	columns = get_columns(warehouses)
 	data = get_data(filters, warehouses)
 	return columns, data
 
 
-def get_warehouses(filters):
-	"""Ordered list of {name, warehouse_name} dicts -- one per showroom column
-	pair. Explicit `warehouse` filter (multi-select) picks the columns shown;
-	otherwise every warehouse that has at least one Item Low Stock Alert row
-	anywhere, so the report's column set doesn't jump around as item/item
-	group filters change."""
-	alert_dt = DocType("Item Low Stock Alert")
+def get_warehouses():
+	"""The fixed three warehouses, in FIXED_WAREHOUSES order -- looked up
+	rather than hardcoding warehouse_name too, so a Warehouse rename is
+	picked up automatically. A warehouse that's been deleted/renamed out
+	from under FIXED_WAREHOUSES is silently skipped rather than erroring,
+	so the report still renders with whichever of the three still exist."""
 	wh_dt = DocType("Warehouse")
-
-	query = (
-		frappe.qb.from_(alert_dt)
-		.inner_join(wh_dt)
-		.on(wh_dt.name == alert_dt.warehouse)
+	rows = (
+		frappe.qb.from_(wh_dt)
 		.select(wh_dt.name, wh_dt.warehouse_name)
-		.where(alert_dt.parenttype == "Item")
-		.distinct()
-		.orderby(wh_dt.warehouse_name)
+		.where(wh_dt.name.isin(FIXED_WAREHOUSES))
+		.run(as_dict=True)
 	)
-
-	selected = filters.get("warehouse")
-	if selected:
-		if isinstance(selected, str):
-			selected = frappe.parse_json(selected)
-		if selected:
-			query = query.where(wh_dt.name.isin(selected))
-
-	return query.run(as_dict=True)
+	by_name = {row.name: row for row in rows}
+	return [by_name[name] for name in FIXED_WAREHOUSES if name in by_name]
 
 
 def get_columns(warehouses):
@@ -99,8 +91,8 @@ def get_columns(warehouses):
 
 def get_items(filters, warehouse_names):
 	"""Items that have at least one Item Low Stock Alert row in one of the
-	shown warehouses -- the same "tracked for low stock" universe Low Stock
-	Alert Report itself draws from."""
+	three fixed warehouses -- the same "tracked for low stock" universe Low
+	Stock Alert Report itself draws from."""
 	if not warehouse_names:
 		return []
 
@@ -174,9 +166,9 @@ def get_data(filters, warehouses):
 		data.append(row)
 
 	# "Filter using color" -- restrict to the same red/not-red split the
-	# formatter (low_stock_and_stock_summary_report.js) highlights with,
-	# rather than just filtering visually. Applied last since it depends on
-	# the totals just computed above.
+	# formatter (production_requirement_report.js) highlights with, rather
+	# than just filtering visually. Applied last since it depends on the
+	# totals just computed above.
 	stock_status = filters.get("stock_status")
 	if stock_status == "Low Stock":
 		data = [row for row in data if flt(row["total_stock"]) < flt(row["total_low_qty"])]
