@@ -10,7 +10,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": null,
- "modified": "2026-04-23 17:02:28.786011",
+ "modified": "2026-08-29 22:30:42.948624",
  "modified_by": "Administrator",
  "module": "Bsp Engineering",
  "name": "Product Weight Report Summary",
@@ -37,6 +37,9 @@
   },
   {
    "role": "Sales Manager"
+  },
+  {
+   "role": "BSP Viewer"
   }
  ],
  "timeout": 0

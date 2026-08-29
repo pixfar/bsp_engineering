@@ -10,7 +10,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": null,
- "modified": "2026-05-11 12:03:07.496673",
+ "modified": "2026-08-29 22:30:42.861040",
  "modified_by": "Administrator",
  "module": "Bsp Engineering",
  "name": "Low Stock Alert Report",
@@ -37,6 +37,9 @@
   },
   {
    "role": "Sales Manager"
+  },
+  {
+   "role": "BSP Viewer"
   }
  ],
  "timeout": 0
