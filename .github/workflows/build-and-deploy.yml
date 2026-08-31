@@ -34,11 +34,11 @@ jobs:
           APPS_JSON='[
             {
               "url": "https://github.com/frappe/erpnext",
-              "branch": "version-15"
+              "branch": "version-16"
             },
             {
               "url": "https://github.com/frappe/hrms.git",
-              "branch": "version-15"
+              "branch": "version-16"
             },
             {
               "url": "https://gitlab.com/pixfar/whitelabel.git",
@@ -50,7 +50,7 @@ jobs:
             },
             {
               "url": "https://github.com/frappe/lending.git",
-              "branch": "version-15"
+              "branch": "version-16"
             },
             {
               "url": "https://github.com/pixfar/bsp_engineering.git",
@@ -76,8 +76,8 @@ jobs:
             --no-cache \
             --platform linux/amd64 \
             --build-arg FRAPPE_PATH=https://github.com/frappe/frappe \
-            --build-arg FRAPPE_BRANCH=version-15 \
-            --build-arg PYTHON_VERSION=3.11.9 \
+            --build-arg FRAPPE_BRANCH=version-16 \
+            --build-arg PYTHON_VERSION=3.14.0 \
             --build-arg NODE_VERSION=20.19.2 \
             --build-arg APPS_JSON_BASE64="$APPS_JSON_BASE64" \
             --tag "$IMAGE_TAG" \
