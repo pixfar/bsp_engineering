@@ -69,7 +69,7 @@ jobs:
           APPS_JSON_BASE64=$(echo "$APPS_JSON" | base64 -w 0)
 
           # Define image tag
-          IMAGE_TAG="registry.gitlab.com/pixfar/pixfar-container-registry/erp-all-demo:bsp"
+          IMAGE_TAG="registry.gitlab.com/pixfar/pixfar-container-registry/erp-all-demo:bsp-v16"
 
           # Build and push to registry
           docker buildx build \
