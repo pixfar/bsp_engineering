@@ -9,10 +9,11 @@ closing balance.
 
 Reuses the warehouse-scoped query helpers from daily_cash_summary_report.py
 (Sales Invoice via `set_warehouse`, Expense Claim via `custom_warehouse`,
-Fund Transfer via Payment Entry Internal Transfer + `custom_warehouse`,
-BSP Daily Deposit via its own `warehouse` field) so the figures always match
-that report and posawesome's daily cash summary PDF -- see that module's
-docstring for the full accounting model this mirrors.
+Fund Transfer via Payment Entry Internal Transfer + `custom_warehouse` plus
+manual Journal Entry adjustments against the warehouse's Cash / Bank
+Accounts, BSP Daily Deposit via its own `warehouse` field) so the figures
+always match that report and posawesome's daily cash summary PDF -- see
+that module's docstring for the full accounting model this mirrors.
 """
 
 import frappe
@@ -45,6 +46,7 @@ def get_columns():
 		{"label": _("Total Discount"), "fieldname": "total_discount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Total Due"), "fieldname": "total_due", "fieldtype": "Currency", "width": 120},
 		{"label": _("Total Collection"), "fieldname": "total_collection", "fieldtype": "Currency", "width": 140},
+		{"label": _("Purchase Paid"), "fieldname": "purchase_paid", "fieldtype": "Currency", "width": 130},
 		{
 			"label": _("Fund Transfer"),
 			"fieldname": "fund_transfer_income",
@@ -54,6 +56,12 @@ def get_columns():
 		{"label": _("Total Expense"), "fieldname": "total_expense", "fieldtype": "Currency", "width": 120},
 		{"label": _("Net Cash Balance"), "fieldname": "net_cash_balance", "fieldtype": "Currency", "width": 140},
 		{"label": _("Bank Deposit"), "fieldname": "bank_deposit", "fieldtype": "Currency", "width": 130},
+		{
+			"label": _("Other Ledger Activity"),
+			"fieldname": "other_ledger_activity",
+			"fieldtype": "Currency",
+			"width": 150,
+		},
 		{
 			"label": _("Closing Cash Balance"),
 			"fieldname": "closing_cash_balance",
@@ -71,16 +79,20 @@ def _get_report_functions():
 		get_deposits,
 		get_expense_claims,
 		get_fund_transfers,
+		get_gl_balance,
 		get_opening_balances,
+		get_purchase_invoices,
 		get_sales_invoices,
 	)
 
 	return (
 		get_sales_invoices,
+		get_purchase_invoices,
 		get_expense_claims,
 		get_deposits,
 		get_fund_transfers,
 		get_opening_balances,
+		get_gl_balance,
 	)
 
 
@@ -91,6 +103,7 @@ def _empty_bucket():
 		"total_discount": 0.0,
 		"total_due": 0.0,
 		"total_collection": 0.0,
+		"purchase_paid": 0.0,
 		"fund_transfer_income": 0.0,
 		"total_expense": 0.0,
 		"bank_deposit": 0.0,
@@ -102,13 +115,16 @@ def get_data(filters, from_date, to_date):
 	warehouse = filters.get("warehouse")
 	(
 		get_sales_invoices,
+		get_purchase_invoices,
 		get_expense_claims,
 		get_deposits,
 		get_fund_transfers,
 		get_opening_balances,
+		get_gl_balance,
 	) = _get_report_functions()
 
 	sales_invoices = get_sales_invoices(company, warehouse, from_date, to_date)
+	purchase_invoices = get_purchase_invoices(company, warehouse, from_date, to_date)
 	expense_claims = get_expense_claims(company, warehouse, from_date, to_date)
 	deposits = get_deposits(company, warehouse, from_date, to_date)
 	fund_transfers = get_fund_transfers(company, warehouse, from_date, to_date)
@@ -128,6 +144,9 @@ def get_data(filters, from_date, to_date):
 		b["total_discount"] += flt(inv.discount_amount)
 		b["total_due"] += flt(inv.outstanding_amount)
 		b["total_collection"] += flt(inv.grand_total) - flt(inv.outstanding_amount)
+
+	for inv in purchase_invoices:
+		bucket(inv.warehouse)["purchase_paid"] += flt(inv.grand_total) - flt(inv.outstanding_amount)
 
 	for row in fund_transfers:
 		bucket(row.warehouse)["fund_transfer_income"] += flt(row.amount)
@@ -150,14 +169,30 @@ def get_data(filters, from_date, to_date):
 		)
 	}
 
+	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse
+
 	data = []
 	for wh in sorted(warehouses, key=lambda w: warehouse_names.get(w, w)):
 		b = totals_by_wh.get(wh) or _empty_bucket()
 		net_cash_balance = (
-			b["total_collection"] + b["fund_transfer_income"] - b["total_expense"]
+			b["total_collection"] + b["fund_transfer_income"] - b["total_expense"] - b["purchase_paid"]
 		)
 		opening = flt(opening_balances.get(wh))
-		closing_cash_balance = opening + net_cash_balance - b["bank_deposit"]
+		formula_closing = opening + net_cash_balance - b["bank_deposit"]
+
+		wh_accounts = get_accounts_for_warehouse(wh)
+		if wh_accounts:
+			# GL-mapped warehouse: Closing Cash Balance is the *real* ledger
+			# balance as of to_date (get_gl_balance) -- the same figure
+			# Trial Balance shows -- not the arithmetic derivation, which is
+			# blind to anything posted to the account outside the
+			# transaction types this report tracks. Other Ledger Activity
+			# surfaces that gap explicitly instead of hiding it.
+			closing_cash_balance = get_gl_balance(wh_accounts, company, to_date)
+			other_ledger_activity = closing_cash_balance - formula_closing
+		else:
+			closing_cash_balance = formula_closing
+			other_ledger_activity = 0.0
 
 		data.append(
 			{
@@ -167,10 +202,12 @@ def get_data(filters, from_date, to_date):
 				"total_discount": b["total_discount"],
 				"total_due": b["total_due"],
 				"total_collection": b["total_collection"],
+				"purchase_paid": b["purchase_paid"],
 				"fund_transfer_income": b["fund_transfer_income"],
 				"total_expense": b["total_expense"],
 				"net_cash_balance": net_cash_balance,
 				"bank_deposit": b["bank_deposit"],
+				"other_ledger_activity": other_ledger_activity,
 				"closing_cash_balance": closing_cash_balance,
 			}
 		)

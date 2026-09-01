@@ -26,15 +26,26 @@ frappe.query_reports["Warehouse Wise Owner Fund Transfer Report"] = {
 			"reqd": 1,
 		},
 		{
+			"fieldname": "warehouse",
+			"label": __("Warehouse"),
+			"fieldtype": "Link",
+			"options": "Warehouse",
+			"get_query": function () {
+				var company = frappe.query_report.get_filter_value("company");
+				return { filters: { company: company, is_group: 0 } };
+			},
+			"description": __("Leave blank to show every warehouse"),
+		},
+		{
 			"fieldname": "cash_in_hand_account",
-			"label": __("Warehouse Name"),
+			"label": __("Account"),
 			"fieldtype": "Link",
 			"options": "Account",
 			"get_query": function () {
 				var company = frappe.query_report.get_filter_value("company");
-				return { filters: { company: company, account_type: "Cash", is_group: 0 } };
+				return { filters: { company: company, account_type: ["in", ["Cash", "Bank"]], is_group: 0 } };
 			},
-			"description": __("Leave blank to show every Cash In Hand account"),
+			"description": __("Leave blank to show every configured Cash/Bank account"),
 		},
 	],
 };

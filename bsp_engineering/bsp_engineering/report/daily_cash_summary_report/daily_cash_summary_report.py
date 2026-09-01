@@ -16,7 +16,11 @@ For each warehouse and day:
   supplier refund correctly *reduces* the day's purchase outflow, i.e.
   *increases* the balance -- cash coming back into the till.
 - Fund Transfer -- Internal Transfer Payment Entries attributed to the
-  warehouse via custom_warehouse (custom_fund_transfer=1), plus Total.
+  warehouse via custom_warehouse (custom_fund_transfer=1), PLUS manual
+  Journal Entry adjustments against that warehouse's own Cash / Bank
+  Accounts (Warehouse.custom_cash_accounts -- e.g. a till-count correction,
+  or an opening balance booked straight to the account) -- both shown as
+  separate traceable rows but summed into the same Total.
 - Cash Out Outflow -- every Expense Claim on its own line, plus Total Expense.
 - BSP Deposit -- every actual BSP Daily Deposit on its own line, plus Total
   Deposited, plus an "Expected Deposit" reference line (= Income, i.e.
@@ -200,57 +204,155 @@ def get_deposits(company, warehouse, from_date, to_date):
 	)
 
 
-def get_fund_transfers(company, warehouse, from_date, to_date):
-	"""Fund Transfer income -- Internal Transfer Payment Entries attributed to
-	a warehouse via custom_warehouse (set from Account Paid To on create).
-	custom_fund_transfer=1 excludes deposit Payment Entries which are also
-	Internal Transfers but already shown under BSP Deposit."""
-	if not frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
+def get_journal_adjustments(company, warehouse, from_date, to_date):
+	"""Manual cash adjustments/receipts posted directly via Journal Entry
+	against one of a warehouse's Cash / Bank Accounts (Warehouse.
+	custom_cash_accounts -- see bsp_engineering.utils.warehouse_accounts)
+	-- e.g. correcting a till count, or booking an opening balance that
+	never went through a Payment Entry. `amount` is signed (net debit minus
+	credit against that account), so a corrective credit reduces the
+	warehouse's balance same as any other outflow. Merged into
+	get_fund_transfers()'s return value below so every downstream
+	consumer (opening balance carry-forward, this report, and the
+	warehouse-wise summary/PDF that reuse it) picks these up for free."""
+	from bsp_engineering.utils.warehouse_accounts import (
+		get_accounts_for_warehouse,
+		get_warehouse_by_account_map,
+	)
+
+	if warehouse:
+		accounts = get_accounts_for_warehouse(warehouse)
+		account_to_warehouse = {account: warehouse for account in accounts}
+	else:
+		account_to_warehouse = get_warehouse_by_account_map(company)
+		accounts = list(account_to_warehouse.keys())
+
+	if not accounts:
 		return []
 
-	wh_condition, wh_params = _warehouse_condition("pe.custom_warehouse", warehouse)
-	fund_transfer_filter = ""
-	if frappe.get_meta("Payment Entry").has_field("custom_fund_transfer"):
-		fund_transfer_filter = "AND IFNULL(pe.custom_fund_transfer, 0) = 1"
-
-	return frappe.db.sql(
-		f"""
-		SELECT pe.name, pe.custom_warehouse AS warehouse, pe.posting_date,
-		       pe.paid_amount AS amount, pe.paid_from, pe.paid_to,
-		       pe.mode_of_payment, pe.reference_no
-		FROM `tabPayment Entry` pe
-		WHERE pe.docstatus = 1
-		  AND pe.company = %(company)s
-		  AND pe.payment_type = 'Internal Transfer'
-		  AND pe.custom_warehouse IS NOT NULL AND pe.custom_warehouse != ''
-		  AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
-		  {fund_transfer_filter}
-		  {wh_condition}
-		ORDER BY pe.custom_warehouse, pe.posting_date, pe.name
+	rows = frappe.db.sql(
+		"""
+		SELECT je.name, jea.account,
+		       (IFNULL(jea.debit_in_account_currency, 0)
+		        - IFNULL(jea.credit_in_account_currency, 0)) AS amount,
+		       je.posting_date, je.user_remark, je.cheque_no
+		FROM `tabJournal Entry Account` jea
+		INNER JOIN `tabJournal Entry` je ON je.name = jea.parent
+		WHERE je.docstatus = 1
+		  AND je.company = %(company)s
+		  AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s
+		  AND jea.account IN %(accounts)s
+		ORDER BY je.posting_date, je.name
 		""",
-		{"company": company, "from_date": from_date, "to_date": to_date, **wh_params},
+		{
+			"company": company,
+			"from_date": from_date,
+			"to_date": to_date,
+			"accounts": tuple(accounts),
+		},
 		as_dict=True,
 	)
 
+	for row in rows:
+		row["warehouse"] = account_to_warehouse.get(row.account)
+		row["paid_from"] = ""
+		row["paid_to"] = row.account
+		row["mode_of_payment"] = _("Journal Entry")
+		row["reference_no"] = row.user_remark or row.cheque_no or ""
+		row["source_label"] = _("Journal Entry")
+
+	return [row for row in rows if row.warehouse]
+
+
+def get_fund_transfers(company, warehouse, from_date, to_date):
+	"""Fund Transfer income -- Internal Transfer Payment Entries attributed to
+	a warehouse via custom_warehouse (set from Account Paid To on create),
+	plus manual Journal Entry adjustments against that warehouse's own Cash
+	/ Bank Accounts (see get_journal_adjustments) -- both shown as separate
+	traceable rows but counted toward the same Fund Transfer total.
+	custom_fund_transfer=1 excludes deposit Payment Entries which are also
+	Internal Transfers but already shown under BSP Deposit."""
+	pe_rows = []
+	if frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
+		wh_condition, wh_params = _warehouse_condition("pe.custom_warehouse", warehouse)
+		fund_transfer_filter = ""
+		if frappe.get_meta("Payment Entry").has_field("custom_fund_transfer"):
+			fund_transfer_filter = "AND IFNULL(pe.custom_fund_transfer, 0) = 1"
+
+		pe_rows = frappe.db.sql(
+			f"""
+			SELECT pe.name, pe.custom_warehouse AS warehouse, pe.posting_date,
+			       pe.paid_amount AS amount, pe.paid_from, pe.paid_to,
+			       pe.mode_of_payment, pe.reference_no
+			FROM `tabPayment Entry` pe
+			WHERE pe.docstatus = 1
+			  AND pe.company = %(company)s
+			  AND pe.payment_type = 'Internal Transfer'
+			  AND pe.custom_warehouse IS NOT NULL AND pe.custom_warehouse != ''
+			  AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
+			  {fund_transfer_filter}
+			  {wh_condition}
+			ORDER BY pe.custom_warehouse, pe.posting_date, pe.name
+			""",
+			{"company": company, "from_date": from_date, "to_date": to_date, **wh_params},
+			as_dict=True,
+		)
+
+	je_rows = get_journal_adjustments(company, warehouse, from_date, to_date)
+
+	rows = list(pe_rows) + je_rows
+	rows.sort(key=lambda row: (row.warehouse, row.posting_date, row.name))
+	return rows
+
+
+def get_gl_balance(accounts, company, as_of_date):
+	"""Real ledger balance (debit - credit) for a set of accounts, as of the
+	end of as_of_date -- the exact same figure the Trial Balance report
+	shows for those accounts. This is the authoritative source of truth;
+	see get_opening_balances() for why it's preferred over the formula-based
+	estimate below wherever it's available."""
+	if not accounts:
+		return 0.0
+	result = frappe.db.sql(
+		"""
+		SELECT SUM(debit) - SUM(credit)
+		FROM `tabGL Entry`
+		WHERE account IN %(accounts)s
+		  AND company = %(company)s
+		  AND is_cancelled = 0
+		  AND posting_date <= %(as_of_date)s
+		""",
+		{"accounts": tuple(accounts), "company": company, "as_of_date": as_of_date},
+	)
+	return flt(result[0][0]) if result and result[0][0] is not None else 0.0
+
 
 def get_opening_balances(company, warehouse, from_date):
-	"""Opening Balance for from_date = the Closing Balance carried forward from
-	every prior day, using the *exact* same formula as the day-by-day rows
-	(see module docstring):
+	"""Opening Balance for from_date, per warehouse.
+
+	For a warehouse with a Cash / Bank Accounts table configured
+	(Warehouse.custom_cash_accounts -- see
+	bsp_engineering.utils.warehouse_accounts), this is the *real* ledger
+	balance of those accounts as of the day before from_date (get_gl_balance)
+	-- the same figure Trial Balance shows, since it comes from the same GL
+	Entry table. This is authoritative: unlike the formula below, it isn't
+	blind to ordinary Payment Entries, Journal Entries posted for reasons
+	other than a till adjustment, or anything else posted straight to the
+	account -- all of which silently drove the formula-based estimate further
+	and further from the truth the longer a warehouse had been running.
+
+	A warehouse with no Cash / Bank Accounts configured yet has no ledger to
+	query, so it falls back to the old formula-based estimate (same as
+	before this GL-based lookup existed):
 	    Income = Collection (received) + Fund Transfer - Expense - Purchase Paid
 	    Balance += Income - Deposit
-	compounded over all history strictly before from_date.
+	compounded over all history strictly before from_date, reusing
+	get_sales_invoices/get_purchase_invoices/get_expense_claims/get_deposits/
+	get_fund_transfers themselves (same warehouse resolution, same filters)
+	so it can't drift from the day-by-day math elsewhere in this module.
+	Configure Warehouse.custom_cash_accounts for accurate figures."""
+	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse, get_warehouse_by_account_map
 
-	Reuses get_sales_invoices/get_purchase_invoices/get_expense_claims/
-	get_deposits/get_fund_transfers themselves (same warehouse resolution,
-	same filters) instead of re-deriving the same SQL, so this can't drift
-	from the day-by-day math again. It previously did drift in two ways: it
-	summed each Sales/Purchase Invoice's full grand_total instead of netting
-	off outstanding_amount (received/paid), and it omitted Expense Claims
-	entirely -- both silently inflated the seeded opening balance the further
-	the report was viewed from a warehouse's very first transaction, most
-	visibly in the single-day PDF (daily_cash_summary_pdf.py) which relies on
-	this function alone with no day-by-day compounding to correct it."""
 	from_date = getdate(from_date)
 	epoch = getdate("1900-01-01")
 	if from_date <= epoch:
@@ -259,9 +361,19 @@ def get_opening_balances(company, warehouse, from_date):
 
 	balances = {}
 
+	if warehouse:
+		mapped_warehouses = [warehouse] if get_accounts_for_warehouse(warehouse) else []
+	else:
+		mapped_warehouses = sorted(set(get_warehouse_by_account_map(company).values()))
+
+	for wh in mapped_warehouses:
+		balances[wh] = get_gl_balance(get_accounts_for_warehouse(wh), company, cutoff)
+
 	def apply(rows, amount_fn, sign):
 		for row in rows:
-			if not row.warehouse:
+			# GL-based warehouses already have an authoritative balance above --
+			# don't let the formula-based estimate silently overwrite it.
+			if not row.warehouse or row.warehouse in balances:
 				continue
 			balances[row.warehouse] = balances.get(row.warehouse, 0.0) + sign * amount_fn(row)
 
@@ -329,8 +441,13 @@ def get_data(filters, from_date, to_date):
 	warehouses = sorted({wh for wh, _d in groups.keys()})
 	opening_balances = get_opening_balances(company, warehouse, from_date)
 
+	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse
+
+	accounts_by_wh = {wh: get_accounts_for_warehouse(wh) for wh in warehouses}
+
 	data = []
 	for wh in warehouses:
+		wh_accounts = accounts_by_wh[wh]
 		running_balance = flt(opening_balances.get(wh))
 		current_date = from_date
 		while current_date <= to_date:
@@ -404,7 +521,7 @@ def get_data(filters, from_date, to_date):
 						"warehouse": wh,
 						"date": current_date,
 						"sl": idx,
-						"particulars": _("Fund Transfer"),
+						"particulars": row.get("source_label") or _("Fund Transfer"),
 						"description": row.paid_to or "",
 						"reference_no": row.name,
 						"fund_transfer_amount": amount,
@@ -464,7 +581,29 @@ def get_data(filters, from_date, to_date):
 				deposit_amount=income,
 			))
 
-			closing_balance = opening_balance + income - deposit_total
+			if wh_accounts:
+				# GL-mapped warehouse: Closing Balance is the *real* ledger
+				# balance for this warehouse's Cash / Bank Accounts as of
+				# today (get_gl_balance) -- the same figure Trial Balance
+				# would show -- not the arithmetic derivation below, which is
+				# blind to anything posted to the account outside the
+				# Sales/Purchase/Expense/Deposit/Fund Transfer types this
+				# report tracks. The gap between the two (if any) is real
+				# ledger activity this report doesn't itemise -- surfaced
+				# explicitly rather than silently absorbed into the balance.
+				closing_balance = get_gl_balance(wh_accounts, company, current_date)
+				other_activity = closing_balance - opening_balance - income + deposit_total
+				if other_activity:
+					data.append(
+						_bold_row(
+							wh,
+							current_date,
+							_("Other Ledger Activity (not itemised above)"),
+							balance_amount=other_activity,
+						)
+					)
+			else:
+				closing_balance = opening_balance + income - deposit_total
 			data.append(_bold_row(wh, current_date, _("Closing Balance"), balance_amount=closing_balance))
 
 			running_balance = closing_balance

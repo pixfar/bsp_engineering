@@ -1,17 +1,17 @@
 # Copyright (c) 2026, Pixfar and contributors
 # For license information, please see license.txt
 
-"""One row per Cash In Hand account (i.e. per showroom, once each has its
-own account set up in the Chart of Accounts), summarizing the Fund
-Transfers shown voucher-wise in Warehouse Wise Owner Fund Transfer Report
+"""One row per Cash / Bank account configured on a warehouse (Warehouse.
+custom_cash_accounts), summarizing the Fund Transfers AND Journal Entry
+adjustments shown voucher-wise in Warehouse Wise Owner Fund Transfer Report
 -- total voucher count and total amount sent, over the selected date
-range. Every Cash In Hand account appears even with zero transfers, not
+range. Every configured account appears even with zero transfers, not
 just the ones that received one. Reuses that report's account and query
 helpers so the figures always match.
 
-The "Warehouse Name" column is the Cash In Hand account itself -- each
-showroom's account is named after it, so no separate Warehouse doctype
-lookup is involved.
+The "Warehouse" column is the real Warehouse link (via
+bsp_engineering.utils.warehouse_accounts); "Account" is the specific
+Cash/Bank account.
 
 Send From / Description / Payment Method only make sense to show directly
 when every voucher for an account agrees on that value; otherwise the cell
@@ -45,7 +45,14 @@ def get_columns():
 	return [
 		{"label": _("SL"), "fieldname": "sl", "fieldtype": "Int", "width": 50},
 		{
-			"label": _("Warehouse Name"),
+			"label": _("Warehouse"),
+			"fieldname": "warehouse",
+			"fieldtype": "Link",
+			"options": "Warehouse",
+			"width": 170,
+		},
+		{
+			"label": _("Account"),
 			"fieldname": "cash_in_hand_account",
 			"fieldtype": "Link",
 			"options": "Account",
@@ -79,20 +86,25 @@ def _single_value_or_blank(values):
 def get_data(filters, from_date, to_date):
 	company = filters.company
 	account = filters.get("cash_in_hand_account")
+	warehouse = filters.get("warehouse")
 	get_cash_in_hand_accounts, get_fund_transfers = _get_report_functions()
 
 	accounts = get_cash_in_hand_accounts(company)
+	if warehouse:
+		accounts = [a for a in accounts if a.warehouse == warehouse]
 	if account:
 		accounts = [a for a in accounts if a.name == account]
 	if not accounts:
 		return []
 
-	rows = get_fund_transfers(company, account, from_date, to_date)
+	rows = get_fund_transfers(company, account, from_date, to_date, warehouse=warehouse)
 	by_account = {}
 	for row in rows:
 		by_account.setdefault(row.paid_to, []).append(row)
 
-	owners = {r.owner for acc_rows in by_account.values() for r in acc_rows}
+	# Journal Entry rows (see get_journal_adjustments) have no owner/user --
+	# they're posted directly against the account, not sent by a person.
+	owners = {r.owner for acc_rows in by_account.values() for r in acc_rows if r.owner}
 	full_names = (
 		{
 			u.name: u.full_name
@@ -108,9 +120,12 @@ def get_data(filters, from_date, to_date):
 		data.append(
 			{
 				"sl": idx,
+				"warehouse": acc.get("warehouse"),
 				"cash_in_hand_account": acc.name,
 				"total_voucher": len(acc_rows),
-				"send_from": _single_value_or_blank(full_names.get(r.owner, r.owner) for r in acc_rows),
+				"send_from": _single_value_or_blank(
+					(full_names.get(r.owner, r.owner) if r.owner else "") for r in acc_rows
+				),
 				"description": _single_value_or_blank(r.reference_no for r in acc_rows),
 				"payment_method": _single_value_or_blank(r.mode_of_payment for r in acc_rows),
 				"send_amount": flt(sum(flt(r.paid_amount) for r in acc_rows)),
