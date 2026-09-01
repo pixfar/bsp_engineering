@@ -60,9 +60,13 @@ jobs:
               "url": "https://github.com/pixfar/POS-Awesome-V15",
               "branch": "master"
             },
-             {
+            {
               "url": "https://github.com/KhaledBinAmir/biometric_integration.git",
               "branch": "develop"
+            },
+            {
+              "url": "https://github.com/Solvronix/Solvronix-Desk.git",
+              "branch": "main"
             }
           ]'
 
