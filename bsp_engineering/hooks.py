@@ -238,6 +238,22 @@ doc_events = {
 			'bsp_engineering.doc_events.invoice.cancel_linked_payments.cancel_linked_payment_entries'
 		),
 	},
+	'Expense Claim': {
+		# Wired as before_cancel (same as Sales/Purchase Invoice above) rather
+		# than called manually from expense_claims.py::cancel_expense_claim --
+		# hrms's Payment Entry on_cancel hook re-saves this Expense Claim's
+		# total_amount_reimbursed/status via a *fresh* frappe.get_doc() as a
+		# side effect of cancelling the linked Payment Entry below, which bumps
+		# its `modified` timestamp in the DB. Running the cascade before_cancel
+		# keeps it inside doc.cancel()'s own lifecycle -- after Frappe's
+		# check_if_latest() has already passed -- instead of running it against
+		# an already-loaded, now-stale `doc` right before doc.cancel() is
+		# called, which raised "Document has been modified after you have
+		# opened it".
+		'before_cancel': (
+			'bsp_engineering.doc_events.invoice.cancel_linked_payments.cancel_linked_payment_entries'
+		),
+	},
 	# 'Delivery Note': {
 	# 	'on_submit': (
 	# 		'bsp_engineering.doc_events.delivery_note.send_stock_notification.send_stock_notification_on_submit'
