@@ -124,6 +124,13 @@ def get_items(filters, warehouse_names):
 		if item_codes:
 			query = query.where(item_dt.name.isin(item_codes))
 
+	production_groups = filters.get("production_group")
+	if production_groups:
+		if isinstance(production_groups, str):
+			production_groups = frappe.parse_json(production_groups)
+		if production_groups:
+			query = query.where(item_dt.custom_production_group.isin(production_groups))
+
 	return query.run(as_dict=True)
 
 

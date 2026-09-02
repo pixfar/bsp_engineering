@@ -118,10 +118,26 @@ def get_items(filters, warehouse_names):
 		.orderby(item_dt.item_name)
 	)
 
-	if filters.get("item_group"):
-		query = query.where(item_dt.item_group == filters.item_group)
-	if filters.get("item_code"):
-		query = query.where(item_dt.name == filters.item_code)
+	item_groups = filters.get("item_group")
+	if item_groups:
+		if isinstance(item_groups, str):
+			item_groups = frappe.parse_json(item_groups)
+		if item_groups:
+			query = query.where(item_dt.item_group.isin(item_groups))
+
+	item_codes = filters.get("item_code")
+	if item_codes:
+		if isinstance(item_codes, str):
+			item_codes = frappe.parse_json(item_codes)
+		if item_codes:
+			query = query.where(item_dt.name.isin(item_codes))
+
+	production_groups = filters.get("production_group")
+	if production_groups:
+		if isinstance(production_groups, str):
+			production_groups = frappe.parse_json(production_groups)
+		if production_groups:
+			query = query.where(item_dt.custom_production_group.isin(production_groups))
 
 	return query.run(as_dict=True)
 

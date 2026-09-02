@@ -22,6 +22,15 @@ frappe.query_reports["Production Requirement Report"] = {
 			},
 		},
 		{
+			"fieldname": "production_group",
+			"label": __("Production Group"),
+			"fieldtype": "MultiSelectList",
+			"options": "Production Group",
+			"get_data": function (txt) {
+				return frappe.db.get_link_options("Production Group", txt);
+			},
+		},
+		{
 			"fieldname": "stock_status",
 			"label": __("Stock Status"),
 			"fieldtype": "Select",
