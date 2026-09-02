@@ -54,7 +54,7 @@ jobs:
             },
             {
               "url": "https://github.com/pixfar/bsp_engineering.git",
-              "branch": "develop"
+              "branch": "version-16"
             },
             {
               "url": "https://github.com/pixfar/POS-Awesome-V15",
