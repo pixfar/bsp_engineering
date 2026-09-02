@@ -271,5 +271,6 @@
    "type": "DocType"
   }
  ],
- "title": "My Workspace"
+ "title": "My Workspace",
+ "type": "Workspace"
 }
