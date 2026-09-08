@@ -31,6 +31,12 @@ class ProductionPlan(ERPNextProductionPlan):
 		if item.get('warehouse'):
 			wo.fg_warehouse = item.get('warehouse')
 
+		# BSP doesn't manufacture sub-assemblies as separate stock -- required_items
+		# should list exactly what's on the BOM itself (checked against stock as-is),
+		# never exploded into a linked sub-BOM's own raw materials. Must be set
+		# before set_required_items(), which reads this to decide whether to explode.
+		wo.use_multi_level_bom = 0
+
 		wo.set_work_order_operations()
 		wo.set_required_items()
 

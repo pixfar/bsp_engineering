@@ -282,6 +282,14 @@ doc_events = {
 			'bsp_engineering.doc_events.production_plan.auto_workflow.on_submit'
 		),
 	},
+	'Work Order': {
+		'before_validate': (
+			'bsp_engineering.doc_events.work_order.sync_source_warehouse.before_validate'
+		),
+		'validate': (
+			'bsp_engineering.doc_events.work_order.sync_source_warehouse.validate'
+		),
+	},
 }
 
 # Scheduled Tasks

@@ -26,3 +26,4 @@ bsp_engineering.patches.v1_0.add_account_warehouse_link
 bsp_engineering.patches.v1_0.setup_molding_salary_system
 bsp_engineering.patches.v1_0.add_do_number_index
 bsp_engineering.patches.v1_0.add_warehouse_cash_accounts
+bsp_engineering.patches.v1_0.flatten_production_plan_work_order_items
