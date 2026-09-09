@@ -71,6 +71,13 @@ def get_columns(warehouses):
 	columns = [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 150},
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 200},
+		{
+			"label": _("Item Group"),
+			"fieldname": "item_group",
+			"fieldtype": "Link",
+			"options": "Item Group",
+			"width": 130,
+		},
 	]
 
 	for idx, wh in enumerate(warehouses):
@@ -117,7 +124,7 @@ def get_items(filters, warehouse_names):
 
 	query = (
 		frappe.qb.from_(item_dt)
-		.select(item_dt.name, item_dt.item_name)
+		.select(item_dt.name, item_dt.item_name, item_dt.item_group)
 		.orderby(item_dt.item_name)
 	)
 
@@ -178,7 +185,7 @@ def get_data(filters, warehouses):
 
 	data = []
 	for item in items:
-		row = {"item_code": item.name, "item_name": item.item_name}
+		row = {"item_code": item.name, "item_name": item.item_name, "item_group": item.item_group}
 		total_low_qty = 0.0
 		total_stock = 0.0
 		for wh_idx, wh in enumerate(warehouses):

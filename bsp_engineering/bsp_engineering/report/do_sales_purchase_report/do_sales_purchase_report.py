@@ -42,6 +42,13 @@ def get_columns():
 			"width": 200,
 		},
 		{
+			"label": _("Item Group"),
+			"fieldname": "item_group",
+			"fieldtype": "Link",
+			"options": "Item Group",
+			"width": 130,
+		},
+		{
 			# Weighted average across every Purchase Invoice line grouped into this
 			# DO+item row -- see get_data's purchase_amount / purchase_qty comment.
 			"label": _("Rate"),
@@ -362,6 +369,21 @@ def get_data(filters):
 			bucket["transfer_dates"].add(row.posting_date)
 		bucket["transfer_qty"] += flt(row.qty)
 
+	# Item Group isn't carried on any of Purchase/Sales/Material Transfer's
+	# own Item child tables (only item_code/item_name are), so it's looked
+	# up separately here rather than joined into each of the three source
+	# queries above -- one batched query, keyed by the item codes actually
+	# present in this report's grouped buckets.
+	item_groups_by_code = {}
+	item_codes = {bucket["item_code"] for bucket in grouped.values()}
+	if item_codes:
+		item_groups_by_code = {
+			row.name: row.item_group
+			for row in frappe.get_all(
+				"Item", filters={"name": ["in", list(item_codes)]}, fields=["name", "item_group"]
+			)
+		}
+
 	data = []
 	for bucket in grouped.values():
 		purchase_qty = bucket["purchase_qty"]
@@ -378,6 +400,7 @@ def get_data(filters):
 				"do_number": bucket["do_number"],
 				"item_code": bucket["item_code"],
 				"item_name": bucket["item_name"],
+				"item_group": item_groups_by_code.get(bucket["item_code"]),
 				"rate": rate,
 				"purchase_id": ", ".join(sorted(bucket["purchase_ids"])),
 				"purchase_date": max(bucket["purchase_dates"]) if bucket["purchase_dates"] else None,
