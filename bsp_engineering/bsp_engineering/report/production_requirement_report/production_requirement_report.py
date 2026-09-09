@@ -23,6 +23,8 @@ from frappe import _
 from frappe.query_builder import DocType
 from frappe.utils import flt
 
+from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
+
 # Fixed, in display order -- not user-selectable, unlike the report this is
 # copied from.
 FIXED_WAREHOUSES = [
@@ -191,4 +193,7 @@ def get_data(filters, warehouses):
 	elif stock_status == "Sufficient Stock":
 		data = [row for row in data if flt(row["total_stock"]) >= flt(row["total_low_qty"])]
 
+	# BSP's official item-category order (see item_category_sort.py), replacing
+	# the item_name ordering get_items() queried in.
+	data = sort_rows_by_item_category(data, get_item_sort_map())
 	return data

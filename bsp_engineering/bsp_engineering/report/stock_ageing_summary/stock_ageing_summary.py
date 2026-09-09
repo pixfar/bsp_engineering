@@ -9,6 +9,8 @@ from frappe.utils import cint, flt
 
 from erpnext.stock.report.stock_ageing.stock_ageing import FIFOSlots, get_average_age
 
+from bsp_engineering.utils.item_category_sort import get_item_sort_map, item_category_sort_key
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -83,5 +85,9 @@ def get_data(filters, to_date):
 			'total_days': get_average_age(fifo_queue, to_date),
 		})
 
-	rows.sort(key=lambda row: (row['warehouse'] or '', row['item_code'] or ''))
+	# Warehouse stays the primary grouping; items within a warehouse follow
+	# BSP's official item-category order (see item_category_sort.py) instead
+	# of plain alphabetical item_code.
+	sort_map = get_item_sort_map()
+	rows.sort(key=lambda row: (row['warehouse'] or '', item_category_sort_key(sort_map, row['item_code'])))
 	return rows

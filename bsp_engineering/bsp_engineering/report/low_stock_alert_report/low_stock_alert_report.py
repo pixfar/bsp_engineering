@@ -6,6 +6,8 @@ from frappe import _
 from frappe.query_builder import DocType
 from pypika import Order
 
+from bsp_engineering.utils.item_category_sort import get_item_sort_map, item_category_sort_key
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -112,5 +114,11 @@ def get_data(filters):
 
 	for row in result:
 		row["shortage_qty"] = frappe.utils.flt(row["low_stock_qty"]) - frappe.utils.flt(row["actual_qty"])
+
+	# Warehouse stays the primary grouping (from the query's own orderby);
+	# items within a warehouse follow BSP's official item-category order (see
+	# item_category_sort.py) instead of plain alphabetical item_code.
+	sort_map = get_item_sort_map()
+	result.sort(key=lambda row: (row['warehouse'] or '', item_category_sort_key(sort_map, row['item_code'])))
 
 	return result

@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from bsp_engineering.utils.item_category_sort import get_item_sort_map, item_category_sort_key
+
 
 NOT_RECEIVED = "Not Received"
 PARTLY_RECEIVED = "Partly Received"
@@ -408,5 +410,9 @@ def get_data(filters):
 		# filtered after the fact here rather than in the SQL WHERE clauses.
 		data = [row for row in data if row["received_status"] == filters.received_status]
 
-	data.sort(key=lambda row: (row["do_number"] or "", row["item_code"] or ""))
+	# DO Number stays the primary grouping; items within a DO follow BSP's
+	# official item-category order (see item_category_sort.py) instead of
+	# plain alphabetical item_code.
+	sort_map = get_item_sort_map()
+	data.sort(key=lambda row: (row["do_number"] or "", item_category_sort_key(sort_map, row["item_code"])))
 	return data

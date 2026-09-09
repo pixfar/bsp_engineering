@@ -1,6 +1,10 @@
+from itertools import groupby
+
 import frappe
 from frappe import _
 from frappe.utils import flt
+
+from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
 
 
 def execute(filters=None):
@@ -178,6 +182,17 @@ def get_data(filters):
         row["tax_amount"] = tax_map.get(row["name"], 0.0) if row["name"] not in seen else 0.0
         if row["name"] not in seen:
             seen.add(row["name"])
+
+    # Invoice grouping (posting_date desc, name desc from the SQL ORDER BY)
+    # stays the primary order; the item lines *within* each invoice follow
+    # BSP's official item-category order (see item_category_sort.py) instead
+    # of raw idx.
+    sort_map = get_item_sort_map()
+    rows = [
+        sorted_row
+        for _invoice, invoice_rows in groupby(rows, key=lambda r: r["name"])
+        for sorted_row in sort_rows_by_item_category(list(invoice_rows), sort_map)
+    ]
 
     return rows
 

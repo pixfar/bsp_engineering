@@ -6,6 +6,8 @@ from frappe import _
 from frappe.query_builder import DocType
 from pypika import Order
 
+from bsp_engineering.utils.item_category_sort import get_item_sort_map, item_category_sort_key
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -118,5 +120,12 @@ def get_data(filters):
 		row['total_weight'] = default_weight * actual_qty
 		row['valuation_rate'] = valuation_rate
 		row['stock_value'] = stock_value or (actual_qty * valuation_rate)
+
+	# BSP's official item-category order (see item_category_sort.py) drives
+	# the row order; warehouse is only a secondary tiebreak for the same item
+	# appearing in more than one warehouse. Replaces the query's own
+	# "stock_uom, item_code, warehouse" ordering.
+	sort_map = get_item_sort_map()
+	result.sort(key=lambda row: (item_category_sort_key(sort_map, row['item_code']), row['warehouse'] or ''))
 
 	return result

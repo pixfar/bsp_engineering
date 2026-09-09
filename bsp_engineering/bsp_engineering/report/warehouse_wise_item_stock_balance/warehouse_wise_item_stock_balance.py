@@ -6,6 +6,8 @@ from frappe import _
 from frappe.query_builder.functions import Sum
 from frappe.utils import flt, getdate, nowdate
 
+from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -228,4 +230,7 @@ def get_data(filters, warehouses):
 		row["grand_total"] = grand_total
 		data.append(row)
 
+	# BSP's official item-category order (see item_category_sort.py), replacing
+	# get_items()'s "item_group asc, item_code asc" ordering.
+	data = sort_rows_by_item_category(data, get_item_sort_map())
 	return data
