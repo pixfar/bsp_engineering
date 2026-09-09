@@ -339,8 +339,40 @@ override_whitelisted_methods = {
 	'posawesome.posawesome.api.purchase_invoices.create_purchase_invoice': (
 		'bsp_engineering.posawesome.overrides.create_purchase_invoice'
 	),
-	'posawesome.posawesome.api.invoice_processing.creation.update_invoice': (
+	# Registered under the path the client actually calls
+	# (posawesome.posawesome.api.invoices.update_invoice, a re-export of
+	# invoice_processing.creation.update_invoice) - override_whitelisted_
+	# methods matches the exact dotted string the client's frappe.call()
+	# sends (see frappe.handler.py: cmd = frappe.override_whitelisted_
+	# method(cmd), applied to the raw request method name before any
+	# frappe.get_attr() resolution), not the function's own canonical
+	# module path. This entry previously used the canonical
+	# invoice_processing.creation path and, as a result, never actually
+	# fired for a real client call - confirmed live via
+	# frappe.override_whitelisted_method("posawesome.posawesome.api.
+	# invoices.update_invoice") returning the string unchanged. That
+	# meant _sync_payload_warehouse/_sync_result_warehouse's fix for a
+	# real, confirmed bug (ERPNext's own Sales/POS Invoice
+	# set_missing_values() -> set_pos_fields() unconditionally resets
+	# every stock item's warehouse to the POS Profile's own default on
+	# every save) was silent dead code - invisible for a normal user
+	# selling from their own assigned warehouse (the reset is a no-op
+	# there), but corrupting every sale a BSP Admin/System Manager made
+	# after switching to a different warehouse, reported live as
+	# "Insufficient stock" against the wrong (profile-default) warehouse
+	# at Pay - see submit_invoice below for the other half of this fix.
+	'posawesome.posawesome.api.invoices.update_invoice': (
 		'bsp_engineering.posawesome.overrides.update_invoice'
+	),
+	# submit_invoice itself (the actual Pay-time call) never had this
+	# protection at all, under any path - a draft's warehouse could be
+	# saved correctly via update_invoice above and still get clobbered
+	# right before the real stock validation/Stock Ledger Entries it
+	# creates, since submit_invoice performs its own doc build from the
+	# client's payload independently. See overrides.submit_invoice's own
+	# docstring for the full detail.
+	'posawesome.posawesome.api.invoices.submit_invoice': (
+		'bsp_engineering.posawesome.overrides.submit_invoice'
 	),
 }
 #

@@ -102,6 +102,52 @@ def update_invoice(data):
 
 
 @frappe.whitelist()
+def submit_invoice(invoice, data, submit_in_background=False):
+	"""Reported live: a BSP Admin/System Manager switches warehouse
+	(and account), adds items, and Pay sometimes fails with "Insufficient
+	stock" against the POS Profile's own default warehouse (e.g. Store
+	Room) even though the real, switched-to warehouse (e.g. Konapara)
+	genuinely has the stock.
+
+	Root cause: ERPNext's own Sales/POS Invoice set_missing_values() ->
+	set_pos_fields() -> get_pos_profile_item_details(..., update_data=True)
+	unconditionally overwrites every stock item's warehouse with the POS
+	Profile's own default warehouse - confirmed live, it really does fire
+	mid-save, on every invoice save/update, regardless of what warehouse
+	was already correctly set on the item. update_invoice() above has
+	carried a fix for this since it was first written
+	(_sync_payload_warehouse/_sync_result_warehouse, driven by the
+	privileged user's own chosen set_warehouse rather than the profile
+	default) - submit_invoice, the actual Pay-time call, never got the
+	same protection, so any staleness anywhere upstream of this exact
+	call (a race between switching warehouse and the item catalog/stock
+	coordinator's own async refresh finishing, a second browser tab, or
+	simply a save cycle that re-ran set_missing_values() after the
+	client last resolved its own warehouse) reaches stock validation and
+	the actual submit uncorrected - and unlike a draft update, this one
+	is not cosmetic: _validate_stock_on_invoice() and the real Stock
+	Ledger Entries this creates both use whatever warehouse is on the
+	doc at this exact point, so the fix has to land on the payload
+	*before* the real submit_invoice runs, not just on what gets
+	returned afterward.
+	"""
+	import json
+
+	from posawesome.posawesome.api.invoice_processing.creation import (
+		submit_invoice as _submit_invoice,
+	)
+
+	payload = json.loads(data) if isinstance(data, str) else (data or {})
+	_sync_payload_warehouse(payload)
+	result = _submit_invoice(
+		invoice,
+		json.dumps(payload) if isinstance(data, str) else payload,
+		submit_in_background=submit_in_background,
+	)
+	return _sync_result_warehouse(result)
+
+
+@frappe.whitelist()
 def get_items(
 	pos_profile,
 	warehouse=None,
