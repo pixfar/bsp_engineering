@@ -60,6 +60,18 @@ frappe.query_reports["Low Stock and Stock Summary Report"] = {
 	// Report raises per-row, surfaced here as a single at-a-glance column
 	// instead of filtering rows out.
 	"formatter": function (value, row, column, data, default_formatter) {
+		// frappe.form.link_formatters["Item"] (registered globally by
+		// ERPNext) rewrites any Item Link cell into "code: item_name"
+		// whenever the same row also carries an item_name field - useful in
+		// e.g. a Sales Order Item grid, but this report already has its own
+		// separate Item Name column right next to it, so it just shows the
+		// code twice. Building the link directly instead of calling
+		// default_formatter() for this one column keeps that global
+		// formatter from ever running here.
+		if (column.fieldname === "item_code" && data && data.item_code) {
+			const code = frappe.utils.escape_html(data.item_code);
+			return `<a href="/app/item/${encodeURIComponent(data.item_code)}" data-doctype="Item" data-name="${code}">${code}</a>`;
+		}
 		value = default_formatter(value, row, column, data);
 		if (column.fieldname === "total_stock" && flt(data.total_stock) < flt(data.total_low_qty)) {
 			value = `<span style="color: var(--red-500, #d1242f); font-weight: 700;">${value}</span>`;

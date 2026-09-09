@@ -2,11 +2,10 @@
 # For license information, please see license.txt
 
 """Production Requirement Report -- a fixed-warehouse copy of Low Stock and
-Stock Summary Report ("For Dalai Order"). Same item universe, same Low
-Qty/Stock/Total columns and same red "needs a Dalai order" flag, but instead
-of a warehouse picker it always shows exactly these three warehouses, in
-this fixed order, since this report exists specifically to look at
-production-feeder stock:
+Stock Summary Report ("For Dalai Order"). Same Low Qty/Stock/Total columns
+and same red "needs a Dalai order" flag, but instead of a warehouse picker
+it always shows exactly these three warehouses, in this fixed order, since
+this report exists specifically to look at production-feeder stock:
 
     Noakhali Karkhana - BSP, Konapara Service Center - BSP, Store Room - BSP
 
@@ -92,23 +91,23 @@ def get_columns(warehouses):
 
 
 def get_items(filters, warehouse_names):
-	"""Items that have at least one Item Low Stock Alert row in one of the
-	three fixed warehouses -- the same "tracked for low stock" universe Low
-	Stock Alert Report itself draws from."""
+	"""Every item in the system (subject only to the Item Group/Item/
+	Production Group filters below) -- not just ones with a configured Item
+	Low Stock Alert row. Previously scoped to that alert-configured universe
+	(226 of 1094 items) the same way Low Stock Alert Report itself draws
+	from; reported live as "not getting all the item reports" and changed
+	by explicit request to show every item, no exceptions -- an item with
+	no alert configured for these three warehouses just shows a real Stock
+	figure from Bin (see get_data below) alongside a Low Qty of 0, rather
+	than being left out of the report entirely."""
 	if not warehouse_names:
 		return []
 
-	alert_dt = DocType("Item Low Stock Alert")
 	item_dt = DocType("Item")
 
 	query = (
-		frappe.qb.from_(alert_dt)
-		.inner_join(item_dt)
-		.on(item_dt.name == alert_dt.parent)
+		frappe.qb.from_(item_dt)
 		.select(item_dt.name, item_dt.item_name)
-		.distinct()
-		.where(alert_dt.parenttype == "Item")
-		.where(alert_dt.warehouse.isin(warehouse_names))
 		.orderby(item_dt.item_name)
 	)
 

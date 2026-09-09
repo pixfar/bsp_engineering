@@ -8,12 +8,12 @@ are currently below their configured threshold. This report instead shows
 the full, at-a-glance picture per item -- for every warehouse that has a
 Low Stock Qty configured on any item (or the warehouses explicitly picked in
 the filter), a "Low Qty" / "Stock" column pair, plus a Total Low Qty and
-Total Stock across those columns. It lists every item that has at least one
-Item Low Stock Alert row configured (the same universe Low Stock Alert
-Report draws from), not just the ones currently short -- the point is to see
-every tracked item's status at a glance, with Total Stock flagged (in red,
-client-side) whenever it has fallen below Total Low Qty, rather than
-filtering rows out entirely.
+Total Stock across those columns. It lists every item in the system (not
+just ones with an Item Low Stock Alert row configured -- see get_items'
+own docstring for why that changed), not just the ones currently short --
+the point is to see every item's status at a glance, with Total Stock
+flagged (in red, client-side) whenever it has fallen below Total Low Qty,
+rather than filtering rows out entirely.
 
 NOTE: the Report doctype's own "Add Total Row" checkbox must stay OFF for
 this report. When it's on, Frappe's report view assumes the *last* row
@@ -100,23 +100,24 @@ def get_columns(warehouses):
 
 
 def get_items(filters, warehouse_names):
-	"""Items that have at least one Item Low Stock Alert row in one of the
-	shown warehouses -- the same "tracked for low stock" universe Low Stock
-	Alert Report itself draws from."""
+	"""Every item in the system (subject only to the Item Group/Item/
+	Production Group filters below) -- not just ones with a configured Item
+	Low Stock Alert row. Previously scoped to that alert-configured universe
+	the same way Low Stock Alert Report itself draws from; reported live (on
+	the fixed-warehouse copy of this report, Production Requirement Report)
+	as "not getting all the item reports" and changed by explicit request to
+	show every item, no exceptions -- an item with no alert configured for
+	the shown warehouses just shows a real Stock figure from Bin (see
+	get_data below) alongside a Low Qty of 0, rather than being left out of
+	the report entirely."""
 	if not warehouse_names:
 		return []
 
-	alert_dt = DocType("Item Low Stock Alert")
 	item_dt = DocType("Item")
 
 	query = (
-		frappe.qb.from_(alert_dt)
-		.inner_join(item_dt)
-		.on(item_dt.name == alert_dt.parent)
+		frappe.qb.from_(item_dt)
 		.select(item_dt.name, item_dt.item_name)
-		.distinct()
-		.where(alert_dt.parenttype == "Item")
-		.where(alert_dt.warehouse.isin(warehouse_names))
 		.orderby(item_dt.item_name)
 	)
 
