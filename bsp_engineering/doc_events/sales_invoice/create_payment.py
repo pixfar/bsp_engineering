@@ -98,13 +98,24 @@ def _create_payment_entries_per_payment_method(doc):
 	totals.
 
 	Every payment method's paid_to is the showroom's POS Profile
-	account_for_change_amount, not each mode of payment's own account --
-	this is what lets accounting be tracked per showroom instead of per
-	payment method. Falls back to the payment split row's own account only
-	if the POS Profile has no change account configured.
+	account_for_change_amount by default, not each mode of payment's own
+	account -- this is what lets accounting be tracked per showroom instead
+	of per payment method. A System Manager / BSP Admin can override that
+	per-sale from POS Awesome's own "Accounts" card though (see
+	invoice_processing.creation._apply_payment_account_override).
+
+	Priority: doc.payment_account (a real, persisted field the override
+	gets saved onto -- this is what survives every intermediate save/reload
+	POS Awesome's own payment screen does before this on_submit hook ever
+	runs, so it's the one value guaranteed current at this point) →
+	row.account (copied from the payments table at whatever point the
+	split was recorded -- can lag if the override changed after that copy)
+	→ the freshly-recomputed POS Profile change account, for a split row
+	saved before either field existed.
 	"""
 	created = []
 	change_account = _get_pos_profile_change_account(doc.pos_profile) or doc.account_for_change_amount
+	payment_account = doc.get('payment_account')
 
 	for row in doc.custom_payment_method_split or []:
 		mode_of_payment = row.mode_of_payment
@@ -124,7 +135,7 @@ def _create_payment_entries_per_payment_method(doc):
 					'paid_amount': amount,
 					'received_amount': amount,
 					'paid_from': doc.debit_to,
-					'paid_to': change_account or row.account,
+					'paid_to': payment_account or row.account or change_account,
 					'mode_of_payment': mode_of_payment,
 					'reference_no': doc.get('posa_pos_opening_shift') or doc.name,
 					'reference_date': doc.posting_date,
