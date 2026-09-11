@@ -1,7 +1,7 @@
 {
  "charts": [],
- "content": "[{\"id\":\"kb3XPLg8lb\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Sales</span>\",\"col\":12}},{\"id\":\"CPxEyhaf3G\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"nWd2KJPW8l\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item\",\"col\":3}},{\"id\":\"snrzfbFr5Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer\",\"col\":3}},{\"id\":\"d_KVM1gsf9\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"JVu8-FJZCu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Purchase</b></span>\",\"col\":12}},{\"id\":\"BBRXM1ZW02\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice\",\"col\":3}},{\"id\":\"SHJKakmLLf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Supplier\",\"col\":3}},{\"id\":\"F2fYhdgnDG\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FtyW-fkKwl\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Stock</b></span>\",\"col\":12}},{\"id\":\"M0bnCw8ojH\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Requisition\",\"col\":3}},{\"id\":\"LNO3JgByoV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Material Transfer\",\"col\":3}},{\"id\":\"N_tG-GZfmT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry\",\"col\":3}}]",
- "creation": "2026-07-12 11:05:22.287191",
+ "content": "[{\"id\":\"66gzOqcsD1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">HR and Payroll</span>\",\"col\":12}},{\"id\":\"llLbnYO1LO\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Employee\",\"col\":3}},{\"id\":\"QP8_ZN13lu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Employee Checkin\",\"col\":3}},{\"id\":\"wi-2yz2Y0I\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Leave Application\",\"col\":3}},{\"id\":\"E2i7Ed-RkU\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Component\",\"col\":3}},{\"id\":\"idPbgGZXso\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure\",\"col\":3}},{\"id\":\"dIHt6VFvrQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Bulk Salary Structure Assignment\",\"col\":3}},{\"id\":\"Tt59MGcTY9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Structure Assignment\",\"col\":3}},{\"id\":\"nFqm5GfB0p\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payroll Entry\",\"col\":3}},{\"id\":\"Wqgu2xDzA3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Slip\",\"col\":3}},{\"id\":\"BoD9j69ix6\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"kb3XPLg8lb\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Sales</span>\",\"col\":12}},{\"id\":\"CPxEyhaf3G\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"nWd2KJPW8l\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item\",\"col\":3}},{\"id\":\"snrzfbFr5Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer\",\"col\":3}},{\"id\":\"d_KVM1gsf9\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"JVu8-FJZCu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Purchase</b></span>\",\"col\":12}},{\"id\":\"BBRXM1ZW02\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice\",\"col\":3}},{\"id\":\"SHJKakmLLf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Supplier\",\"col\":3}},{\"id\":\"F2fYhdgnDG\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FtyW-fkKwl\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Stock</b></span>\",\"col\":12}},{\"id\":\"M0bnCw8ojH\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Requisition\",\"col\":3}},{\"id\":\"LNO3JgByoV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Material Transfer\",\"col\":3}},{\"id\":\"N_tG-GZfmT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry\",\"col\":3}},{\"id\":\"HFvGIH5Uip\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"X4nW-LM0mz\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Manufacturing</b></span>\",\"col\":12}},{\"id\":\"-k37A7G_Fu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Bill of Materials (BOM)\",\"col\":4}},{\"id\":\"ehNcy31cV-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Plan\",\"col\":3}}]",
+ "creation": "2026-09-11 11:11:20.569379",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -201,8 +201,8 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-12 15:50:14.187926",
- "modified_by": "azmin@pixfar.com",
+ "modified": "2026-09-11 20:11:26.819248",
+ "modified_by": "azmin@bspengineeringworks.com",
  "module": "Bsp Engineering",
  "name": "My Workspace",
  "number_cards": [],
@@ -225,8 +225,40 @@
   {
    "color": "Grey",
    "doc_view": "List",
+   "label": "Employee",
+   "link_to": "Employee",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Bill of Materials (BOM)",
+   "link_to": "BOM",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
    "label": "Material Transfer",
    "link_to": "Material Transfer",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Leave Application",
+   "link_to": "Leave Application",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Production Plan",
+   "link_to": "Production Plan",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -239,8 +271,24 @@
   {
    "color": "Grey",
    "doc_view": "List",
+   "label": "Employee Checkin",
+   "link_to": "Employee Checkin",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
    "label": "Purchase Invoice",
    "link_to": "Purchase Invoice",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Salary Structure",
+   "link_to": "Salary Structure",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -248,6 +296,14 @@
    "doc_view": "",
    "label": "Customer",
    "link_to": "Customer",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Salary Component",
+   "link_to": "Salary Component",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
@@ -259,8 +315,23 @@
   {
    "color": "Grey",
    "doc_view": "List",
+   "label": "Bulk Salary Structure Assignment",
+   "link_to": "Bulk Salary Structure Assignment",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
    "label": "Stock Entry",
    "link_to": "Stock Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Salary Structure Assignment",
+   "link_to": "Salary Structure Assignment",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -268,6 +339,22 @@
    "doc_view": "",
    "label": "Sales Invoice",
    "link_to": "Sales Invoice",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Payroll Entry",
+   "link_to": "Payroll Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Salary Slip",
+   "link_to": "Salary Slip",
+   "stats_filter": "[]",
    "type": "DocType"
   }
  ],
