@@ -3,6 +3,14 @@ import json
 import frappe
 
 POS_WAREHOUSE_SWITCH_ROLE = 'System Manager'
+# BSP Admin already gets unrestricted warehouse access everywhere else in
+# this app (see posawesome.posawesome.utils.warehouse_doc_permissions.
+# is_privileged_invoice_viewer). BSP Viewer is the deliberately read-only
+# role handed to management for full cross-showroom oversight (see that
+# same module's is_read_only_viewer / ensure_can_create) -- neither should
+# be locked to a single POS Profile warehouse here just because this
+# particular check only ever asked about System Manager.
+POS_WAREHOUSE_UNRESTRICTED_ROLES = {POS_WAREHOUSE_SWITCH_ROLE, 'BSP Admin', 'BSP Viewer'}
 
 
 def get_default_company():
@@ -12,9 +20,12 @@ def get_default_company():
 
 
 def can_change_pos_warehouse(user=None):
-	"""System Manager may switch among all company warehouses."""
+	"""System Manager, BSP Admin, and BSP Viewer may switch among / see all
+	company warehouses -- everyone else stays locked to their POS Profile's
+	own warehouse (see should_use_pos_profile_warehouse_only)."""
 	user = user or frappe.session.user
-	return POS_WAREHOUSE_SWITCH_ROLE in frappe.get_roles(user)
+	user_roles = frappe.get_roles(user)
+	return bool(POS_WAREHOUSE_UNRESTRICTED_ROLES.intersection(user_roles))
 
 
 def _expand_warehouse_permission_names(names):

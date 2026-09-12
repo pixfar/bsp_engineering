@@ -15,6 +15,7 @@ from bsp_engineering.bsp_engineering.doctype.requisition.transfer_status import 
 from posawesome.posawesome.utils.warehouse_doc_permissions import (
 	ensure_warehouse_doc_read_access,
 	get_expanded_permitted_warehouses,
+	is_read_only_viewer,
 	is_system_manager,
 )
 
@@ -55,11 +56,22 @@ def can_create_stock_entry(requisition):
 	if doc.requested_by == frappe.session.user:
 		return {'can_create': False, 'reason': 'requester'}
 
+	# BSP Viewer is read-only management oversight -- get_expanded_permitted_
+	# warehouses() now returns None (unrestricted *visibility*) for them same
+	# as System Manager/BSP Admin, but that must never translate into being
+	# allowed to actually create a Stock Entry. Checked explicitly, before
+	# the None-means-unrestricted warehouse check below.
+	if is_read_only_viewer():
+		return {'can_create': False, 'reason': 'read_only'}
+
 	if is_system_manager():
 		return {'can_create': True}
 
-	warehouses = get_expanded_permitted_warehouses() or []
-	if doc.source_warehouse and doc.source_warehouse in warehouses:
+	# None here now only ever means System Manager/BSP Admin (BSP Viewer was
+	# excluded above) -- `or []` would collapse that into "no warehouse
+	# allowed", the opposite of what it means.
+	warehouses = get_expanded_permitted_warehouses()
+	if warehouses is None or (doc.source_warehouse and doc.source_warehouse in warehouses):
 		return {'can_create': True}
 
 	return {'can_create': False, 'reason': 'no_permission'}
@@ -77,10 +89,21 @@ def make_stock_entry(requisition):
 			title=_('Not Allowed'),
 		)
 
-	# Only System Manager or a user with permission on the Source Warehouse may create
+	# See can_create_stock_entry above for why this has to be checked
+	# explicitly rather than falling out of the warehouse check below.
+	if is_read_only_viewer():
+		frappe.throw(
+			_('BSP Viewer is a read-only role and cannot create a Stock Entry.'),
+			exc=frappe.PermissionError,
+		)
+
+	# Only System Manager/BSP Admin, or a user with permission on the Source
+	# Warehouse, may create. None from get_expanded_permitted_warehouses()
+	# here only ever means System Manager/BSP Admin (BSP Viewer was excluded
+	# above) -- `or []` would collapse that into "no warehouse allowed".
 	if not is_system_manager():
-		warehouses = get_expanded_permitted_warehouses() or []
-		if not doc.source_warehouse or doc.source_warehouse not in warehouses:
+		warehouses = get_expanded_permitted_warehouses()
+		if warehouses is not None and (not doc.source_warehouse or doc.source_warehouse not in warehouses):
 			frappe.throw(
 				_('You need permission on the Source Warehouse ({0}) to create a Stock Entry.').format(
 					doc.source_warehouse or _('not set')

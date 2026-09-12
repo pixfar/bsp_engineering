@@ -11,6 +11,7 @@ from frappe.utils import flt
 from posawesome.posawesome.utils.warehouse_doc_permissions import (
 	ensure_warehouse_doc_read_access,
 	get_expanded_permitted_warehouses,
+	is_read_only_viewer,
 	is_system_manager,
 )
 
@@ -137,14 +138,28 @@ def _check_target_warehouse_permission(doc):
 	if is_system_manager():
 		return
 
+	# BSP Viewer is read-only management oversight -- get_expanded_permitted_
+	# warehouses() returns None (unrestricted *visibility*) for them same as
+	# System Manager/BSP Admin, but that must never translate into being
+	# allowed to actually confirm receipt. Checked explicitly, before the
+	# None-means-unrestricted warehouse check below.
+	if is_read_only_viewer():
+		frappe.throw(
+			_('BSP Viewer is a read-only role and cannot confirm receipt.'),
+			exc=frappe.PermissionError,
+		)
+
 	if frappe.session.user == doc.requested_by:
 		frappe.throw(
 			_('You cannot receive your own Material Transfer request.'),
 			title=_('Not Allowed'),
 		)
 
-	warehouses = get_expanded_permitted_warehouses() or []
-	if doc.to_warehouse and doc.to_warehouse in warehouses:
+	# None here only ever means System Manager/BSP Admin (BSP Viewer was
+	# excluded above) -- `or []` would collapse that into "no warehouse
+	# allowed", the opposite of what it means.
+	warehouses = get_expanded_permitted_warehouses()
+	if warehouses is None or (doc.to_warehouse and doc.to_warehouse in warehouses):
 		return
 
 	frappe.throw(
@@ -165,11 +180,14 @@ def can_action(transfer):
 	if doc.requested_by == frappe.session.user:
 		return {'can_action': False, 'reason': 'requester'}
 
+	if is_read_only_viewer():
+		return {'can_action': False, 'reason': 'read_only'}
+
 	if is_system_manager():
 		return {'can_action': True}
 
-	warehouses = get_expanded_permitted_warehouses() or []
-	if doc.to_warehouse and doc.to_warehouse in warehouses:
+	warehouses = get_expanded_permitted_warehouses()
+	if warehouses is None or (doc.to_warehouse and doc.to_warehouse in warehouses):
 		return {'can_action': True}
 
 	return {'can_action': False, 'reason': 'no_permission'}
