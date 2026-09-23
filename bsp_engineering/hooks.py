@@ -13,6 +13,9 @@ app_license = "mit"
 # Custom CSS
 
 app_include_css = "/assets/bsp_engineering/css/theme.css"
+app_include_js = [
+    "/assets/bsp_engineering/js/bsp_column_picker.js"
+]
 
 # Fixtures 
 
@@ -72,6 +75,7 @@ fixtures = [
 # include js in page
 page_js = {
 	'print': 'public/js/bsp_print.js',
+	'query-report': 'public/js/bsp_column_picker.js',
 }
 
 # include js in doctype views
