@@ -172,7 +172,10 @@ def get_data(filters, from_date, to_date):
 	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse
 
 	data = []
-	for wh in sorted(warehouses, key=lambda w: warehouse_names.get(w, w)):
+	# Rows follow BSP's official warehouse order (Warehouse Sort Order).
+	from bsp_engineering.utils.warehouse_sort import sort_warehouses
+
+	for wh in sort_warehouses(warehouses):
 		b = totals_by_wh.get(wh) or _empty_bucket()
 		net_cash_balance = (
 			b["total_collection"] + b["fund_transfer_income"] - b["total_expense"] - b["purchase_paid"]

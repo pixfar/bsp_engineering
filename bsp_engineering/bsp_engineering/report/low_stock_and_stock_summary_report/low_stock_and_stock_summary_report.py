@@ -28,6 +28,7 @@ from frappe.query_builder import DocType
 from frappe.utils import flt
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
+from bsp_engineering.utils.warehouse_sort import sort_warehouses
 
 
 def execute(filters=None):
@@ -54,7 +55,6 @@ def get_warehouses(filters):
 		.select(wh_dt.name, wh_dt.warehouse_name)
 		.where(alert_dt.parenttype == "Item")
 		.distinct()
-		.orderby(wh_dt.warehouse_name)
 	)
 
 	selected = filters.get("warehouse")
@@ -64,7 +64,8 @@ def get_warehouses(filters):
 		if selected:
 			query = query.where(wh_dt.name.isin(selected))
 
-	return query.run(as_dict=True)
+	# Columns follow BSP's official warehouse order (Warehouse Sort Order).
+	return sort_warehouses(query.run(as_dict=True), key="name")
 
 
 def get_columns(warehouses):

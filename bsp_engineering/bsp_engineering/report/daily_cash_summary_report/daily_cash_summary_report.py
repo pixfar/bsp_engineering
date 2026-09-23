@@ -438,7 +438,10 @@ def get_data(filters, from_date, to_date):
 	if not groups:
 		return []
 
-	warehouses = sorted({wh for wh, _d in groups.keys()})
+	# Warehouse blocks follow BSP's official warehouse order (Warehouse Sort Order).
+	from bsp_engineering.utils.warehouse_sort import sort_warehouses
+
+	warehouses = sort_warehouses({wh for wh, _d in groups.keys()})
 	opening_balances = get_opening_balances(company, warehouse, from_date)
 
 	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse

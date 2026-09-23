@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, getdate, nowdate
 
 
 def on_update(doc, method):
@@ -48,9 +48,11 @@ def _complete_all_work_orders(doc):
             wo_doc = frappe.get_doc('Work Order', wo.name)
 
             if not wo_doc.skip_transfer:
-                _create_and_submit_stock_entry(wo.name, 'Material Transfer for Manufacture', remaining_qty)
+                _create_and_submit_stock_entry(
+                    wo.name, 'Material Transfer for Manufacture', remaining_qty, doc.posting_date
+                )
 
-            _create_and_submit_stock_entry(wo.name, 'Manufacture', remaining_qty)
+            _create_and_submit_stock_entry(wo.name, 'Manufacture', remaining_qty, doc.posting_date)
             completed += 1
 
         except Exception as e:
@@ -71,7 +73,7 @@ def _complete_all_work_orders(doc):
         )
 
 
-def _create_and_submit_stock_entry(wo_name, purpose, qty):
+def _create_and_submit_stock_entry(wo_name, purpose, qty, posting_date=None):
     from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
 
     # Remove orphaned draft SEs for the same WO + purpose — ERPNext blocks new entries
@@ -87,6 +89,12 @@ def _create_and_submit_stock_entry(wo_name, purpose, qty):
     se_data = make_stock_entry(wo_name, purpose, qty)
     se_data.pop('name', None)
     se = frappe.get_doc(se_data)
+    # A backdated Production Plan must post its stock movements on the plan's
+    # own date, not today. Without set_posting_time, Stock Entry.validate()
+    # resets posting_date to now.
+    if posting_date and getdate(posting_date) != getdate(nowdate()):
+        se.set_posting_time = 1
+        se.posting_date = posting_date
     se.insert(ignore_permissions=True)
     # Submit directly, bypassing any active workflow on Stock Entry (e.g. BSP Material Transfer Receipt)
     # which would otherwise block submission of manufacturing-related entries.

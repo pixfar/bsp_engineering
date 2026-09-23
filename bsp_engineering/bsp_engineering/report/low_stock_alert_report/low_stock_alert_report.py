@@ -4,9 +4,10 @@
 import frappe
 from frappe import _
 from frappe.query_builder import DocType
-from pypika import Order
+from frappe.query_builder.functions import IfNull
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, item_category_sort_key
+from bsp_engineering.utils.warehouse_sort import get_warehouse_sort_map, warehouse_sort_key
 
 
 def execute(filters=None):
@@ -78,47 +79,56 @@ def get_data(filters):
 	item_dt = DocType("Item")
 	alert_dt = DocType("Item Low Stock Alert")
 
+	# Start from the alert rows and LEFT JOIN Bin: an item that has never had
+	# stock in a warehouse has no Bin row at all, and its stock is 0 -- an
+	# INNER JOIN on Bin silently dropped exactly those (most urgent) rows.
+	actual_qty = IfNull(bin_dt.actual_qty, 0)
 	query = (
-		frappe.qb.from_(bin_dt)
-		.inner_join(item_dt).on(item_dt.name == bin_dt.item_code)
-		.inner_join(alert_dt).on(
-			(alert_dt.parent == bin_dt.item_code)
-			& (alert_dt.parenttype == "Item")
-			& (alert_dt.warehouse == bin_dt.warehouse)
+		frappe.qb.from_(alert_dt)
+		.inner_join(item_dt).on(item_dt.name == alert_dt.parent)
+		.left_join(bin_dt).on(
+			(bin_dt.item_code == alert_dt.parent)
+			& (bin_dt.warehouse == alert_dt.warehouse)
 		)
 		.select(
-			bin_dt.warehouse,
-			bin_dt.item_code,
+			alert_dt.warehouse,
+			alert_dt.parent.as_("item_code"),
 			item_dt.item_name,
 			item_dt.item_group,
-			bin_dt.stock_uom,
-			bin_dt.actual_qty,
+			IfNull(bin_dt.stock_uom, item_dt.stock_uom).as_("stock_uom"),
+			actual_qty.as_("actual_qty"),
 			alert_dt.low_stock_qty,
 		)
+		.where(alert_dt.parenttype == "Item")
 		.where(alert_dt.low_stock_qty > 0)
-		.where(bin_dt.actual_qty < alert_dt.low_stock_qty)
-		.orderby(bin_dt.warehouse, order=Order.asc)
-		.orderby(bin_dt.item_code, order=Order.asc)
+		.where(actual_qty < alert_dt.low_stock_qty)
 	)
 
 	if filters.get("warehouse"):
-		query = query.where(bin_dt.warehouse == filters.warehouse)
+		query = query.where(alert_dt.warehouse == filters.warehouse)
 
 	if filters.get("item_group"):
 		query = query.where(item_dt.item_group == filters.item_group)
 
 	if filters.get("item_code"):
-		query = query.where(bin_dt.item_code == filters.item_code)
+		query = query.where(alert_dt.parent == filters.item_code)
 
 	result = query.run(as_dict=True)
 
 	for row in result:
 		row["shortage_qty"] = frappe.utils.flt(row["low_stock_qty"]) - frappe.utils.flt(row["actual_qty"])
 
-	# Warehouse stays the primary grouping (from the query's own orderby);
-	# items within a warehouse follow BSP's official item-category order (see
-	# item_category_sort.py) instead of plain alphabetical item_code.
+	# Same item order as Low Stock and Stock Summary Report: BSP's official
+	# item-category order (see item_category_sort.py), ties by item_name.
+	# Warehouse is secondary, so one item's rows across warehouses sit together.
 	sort_map = get_item_sort_map()
-	result.sort(key=lambda row: (row['warehouse'] or '', item_category_sort_key(sort_map, row['item_code'])))
+	wh_sort_map = get_warehouse_sort_map()
+	result.sort(
+		key=lambda row: (
+			item_category_sort_key(sort_map, row['item_code']),
+			row['item_name'] or '',
+			warehouse_sort_key(wh_sort_map, row['warehouse']),
+		)
+	)
 
 	return result

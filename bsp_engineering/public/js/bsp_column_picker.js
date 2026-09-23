@@ -1,4 +1,4 @@
-console.log("BSP: query_report_columns.js LOADED ✓");
+console.log("BSP: bsp_column_picker.js loaded");
 frappe.provide("frappe.views");
 
 // -----------------------------------------------------------------------
@@ -97,6 +97,53 @@ function bsp_add_pick_columns_button(report) {
     }).addClass("bsp-pick-columns-btn");
 }
 
+// -----------------------------------------------------------------------
+// BSP: Query Reports open sorted by their date column, newest first, so the
+// latest transactions are at the top. Only the view is sorted (the datatable
+// row order), not report.data, so exports and the total row are unchanged.
+// Skipped for tree reports, for data already in descending date order, and
+// for reports that set `bsp_default_date_sort: false` in their JS settings
+// (e.g. statements whose rows are grouped per party).
+// -----------------------------------------------------------------------
+const BSP_DATE_SORT_FIELDS = ["posting_date", "date", "transaction_date", "posting_datetime"];
+
+function bsp_find_date_column(report) {
+    const visible = (report.columns || []).filter((col) => !col.hidden);
+    const is_date = (col) => ["Date", "Datetime"].includes(col.fieldtype);
+    return (
+        visible.find((col) => is_date(col) && BSP_DATE_SORT_FIELDS.includes(col.fieldname)) ||
+        visible.find((col) => is_date(col) && ["Date", "Posting Date"].includes(col.label))
+    );
+}
+
+function bsp_apply_default_date_sort(report) {
+    const datatable = report.datatable;
+    if (!datatable || !datatable.datamanager || report.tree_report) return;
+    if (report.report_settings && report.report_settings.bsp_default_date_sort === false) return;
+
+    const date_col = bsp_find_date_column(report);
+    if (!date_col) return;
+
+    const dt_col = datatable.datamanager
+        .getColumns()
+        .find((col) => col.id === date_col.fieldname || col.id === date_col.id);
+    if (!dt_col || (dt_col.sortOrder && dt_col.sortOrder !== "none")) return;
+
+    // Already newest-first -> leave the report's own order alone.
+    const dates = (report.data || [])
+        .map((row) => row && row[date_col.fieldname])
+        .filter(Boolean)
+        .map(String);
+    if (dates.length < 2) return;
+    const already_desc = dates.every((d, i) => i === 0 || dates[i - 1] >= d);
+    if (already_desc) return;
+
+    // Reverse first so rows sharing the same date also end up newest-first
+    // (the datatable's sort keeps the existing order for equal values).
+    datatable.datamanager.rowViewOrder.reverse();
+    datatable.sortColumn(dt_col.colIndex, "desc");
+}
+
 // Patch the QueryReport prototype once it's available
 let bsp_patch_interval = setInterval(() => {
     if (!frappe.views || !frappe.views.QueryReport) return;
@@ -112,7 +159,9 @@ let bsp_patch_interval = setInterval(() => {
         if (this._bsp_col_prefs && this._bsp_col_prefs.visible_columns) {
             bsp_apply_column_prefs(this, this._bsp_col_prefs.visible_columns);
         }
-        return _orig_render_datatable.call(this);
+        const result = _orig_render_datatable.call(this);
+        bsp_apply_default_date_sort(this);
+        return result;
     };
 
     // Hook into setup_page_head to inject the button

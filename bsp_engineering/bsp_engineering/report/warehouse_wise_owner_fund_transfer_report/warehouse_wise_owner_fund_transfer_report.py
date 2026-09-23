@@ -89,7 +89,11 @@ def get_cash_in_hand_accounts(company):
 		frappe._dict({"name": account, "account_name": names.get(account, account), "warehouse": warehouse})
 		for account, warehouse in account_to_warehouse.items()
 	]
-	accounts.sort(key=lambda row: (row.warehouse, row.account_name))
+	# BSP's official warehouse order (Warehouse Sort Order), then account name.
+	from bsp_engineering.utils.warehouse_sort import get_warehouse_sort_map, warehouse_sort_key
+
+	wh_sort_map = get_warehouse_sort_map()
+	accounts.sort(key=lambda row: (warehouse_sort_key(wh_sort_map, row.warehouse), row.account_name))
 	return accounts
 
 
@@ -143,7 +147,7 @@ def get_fund_transfers(company, account, from_date, to_date, warehouse=None):
 		  AND pe.company = %(company)s
 		  AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
 		  {condition}
-		ORDER BY pe.posting_date, pe.name
+		ORDER BY pe.posting_date DESC, pe.name DESC
 		""",
 		{"company": company, "from_date": from_date, "to_date": to_date, **params},
 		as_dict=True,
@@ -158,7 +162,8 @@ def get_fund_transfers(company, account, from_date, to_date, warehouse=None):
 		row["paid_amount"] = row.amount
 
 	rows = list(pe_rows) + je_rows
-	rows.sort(key=lambda row: (row.posting_date, row.name))
+	# Newest first, so the latest transfers are at the top of the report.
+	rows.sort(key=lambda row: (row.posting_date, row.name), reverse=True)
 	return rows
 
 

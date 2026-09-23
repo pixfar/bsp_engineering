@@ -7,6 +7,7 @@ from frappe.query_builder import DocType
 from pypika import Order
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, item_category_sort_key
+from bsp_engineering.utils.warehouse_sort import get_warehouse_sort_map, warehouse_sort_key
 
 
 def execute(filters=None):
@@ -126,6 +127,12 @@ def get_data(filters):
 	# appearing in more than one warehouse. Replaces the query's own
 	# "stock_uom, item_code, warehouse" ordering.
 	sort_map = get_item_sort_map()
-	result.sort(key=lambda row: (item_category_sort_key(sort_map, row['item_code']), row['warehouse'] or ''))
+	wh_sort_map = get_warehouse_sort_map()
+	result.sort(
+		key=lambda row: (
+			item_category_sort_key(sort_map, row['item_code']),
+			warehouse_sort_key(wh_sort_map, row['warehouse']),
+		)
+	)
 
 	return result

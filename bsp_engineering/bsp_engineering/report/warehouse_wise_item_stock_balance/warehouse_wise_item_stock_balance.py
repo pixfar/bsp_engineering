@@ -7,6 +7,7 @@ from frappe.query_builder.functions import Sum
 from frappe.utils import flt, getdate, nowdate
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
+from bsp_engineering.utils.warehouse_sort import sort_warehouses
 
 
 def execute(filters=None):
@@ -29,6 +30,8 @@ def get_warehouses(filters):
 		fields=["name"],
 		order_by="lft asc",
 	)
+	# Columns follow BSP's official warehouse order (Warehouse Sort Order).
+	warehouses = sort_warehouses(warehouses, key="name")
 
 	for idx, warehouse in enumerate(warehouses):
 		warehouse["fieldname"] = f"warehouse_{idx}"

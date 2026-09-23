@@ -4,10 +4,11 @@
 """Production Requirement Report -- a fixed-warehouse copy of Low Stock and
 Stock Summary Report ("For Dalai Order"). Same Low Qty/Stock/Total columns
 and same red "needs a Dalai order" flag, but instead of a warehouse picker
-it always shows exactly these three warehouses, in this fixed order, since
-this report exists specifically to look at production-feeder stock:
+it always shows exactly these three warehouses (in BSP's official warehouse
+order), since this report exists specifically to look at production-feeder
+stock:
 
-    Noakhali Karkhana - BSP, Konapara Service Center - BSP, Store Room - BSP
+    Konapara Service Center - BSP, Noakhali Karkhana - BSP, Store Room - BSP
 
 See low_stock_and_stock_summary_report.py for the full column/data shape
 this mirrors.
@@ -23,12 +24,13 @@ from frappe.query_builder import DocType
 from frappe.utils import flt
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
+from bsp_engineering.utils.warehouse_sort import sort_warehouses
 
-# Fixed, in display order -- not user-selectable, unlike the report this is
-# copied from.
+# Fixed -- not user-selectable, unlike the report this is copied from.
+# Display order comes from Warehouse Sort Order (see get_warehouses).
 FIXED_WAREHOUSES = [
-	"Noakhali Karkhana - BSP",
 	"Konapara Service Center - BSP",
+	"Noakhali Karkhana - BSP",
 	"Store Room - BSP",
 ]
 
@@ -42,7 +44,7 @@ def execute(filters=None):
 
 
 def get_warehouses():
-	"""The fixed three warehouses, in FIXED_WAREHOUSES order -- looked up
+	"""The fixed three warehouses, in BSP's official warehouse order -- looked up
 	rather than hardcoding warehouse_name too, so a Warehouse rename is
 	picked up automatically. A warehouse that's been deleted/renamed out
 	from under FIXED_WAREHOUSES is silently skipped rather than erroring,
@@ -55,7 +57,9 @@ def get_warehouses():
 		.run(as_dict=True)
 	)
 	by_name = {row.name: row for row in rows}
-	return [by_name[name] for name in FIXED_WAREHOUSES if name in by_name]
+	# Columns follow BSP's official warehouse order (Warehouse Sort Order),
+	# not the order FIXED_WAREHOUSES happens to be written in.
+	return sort_warehouses([by_name[name] for name in FIXED_WAREHOUSES if name in by_name], key="name")
 
 
 def get_columns(warehouses):

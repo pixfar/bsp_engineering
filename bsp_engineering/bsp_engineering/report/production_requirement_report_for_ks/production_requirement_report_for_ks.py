@@ -25,9 +25,10 @@ from frappe.query_builder import DocType
 from frappe.utils import flt
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
+from bsp_engineering.utils.warehouse_sort import sort_warehouses
 
-# Fixed, in display order -- not user-selectable, unlike the report this is
-# copied from.
+# Fixed -- not user-selectable, unlike the report this is copied from.
+# Display order comes from Warehouse Sort Order (see get_warehouses).
 FIXED_WAREHOUSES = [
 	"Konapara Service Center - BSP",
 	"Store Room - BSP",
@@ -43,7 +44,7 @@ def execute(filters=None):
 
 
 def get_warehouses():
-	"""The fixed two warehouses, in FIXED_WAREHOUSES order -- looked up
+	"""The fixed two warehouses, in BSP's official warehouse order -- looked up
 	rather than hardcoding warehouse_name too, so a Warehouse rename is
 	picked up automatically. A warehouse that's been deleted/renamed out
 	from under FIXED_WAREHOUSES is silently skipped rather than erroring,
@@ -56,7 +57,9 @@ def get_warehouses():
 		.run(as_dict=True)
 	)
 	by_name = {row.name: row for row in rows}
-	return [by_name[name] for name in FIXED_WAREHOUSES if name in by_name]
+	# Columns follow BSP's official warehouse order (Warehouse Sort Order),
+	# not the order FIXED_WAREHOUSES happens to be written in.
+	return sort_warehouses([by_name[name] for name in FIXED_WAREHOUSES if name in by_name], key="name")
 
 
 def get_columns(warehouses):
