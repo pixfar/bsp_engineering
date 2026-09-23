@@ -316,6 +316,7 @@ scheduler_events = {
 # ------------------------------
 #
 override_whitelisted_methods = {
+	'frappe.desk.query_report.export_query': 'bsp_engineering.overrides.query_report.export_query',
 	'posawesome.posawesome.api.items.get_items': (
 		'bsp_engineering.posawesome.overrides.get_items'
 	),

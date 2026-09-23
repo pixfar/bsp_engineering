@@ -19,8 +19,8 @@ function bsp_open_pick_columns_dialog(report) {
             fieldname: "columns",
             fieldtype: "MultiCheck",
             options: report.columns.map((col) => ({
-                label: col.name || col.label || col.id,
-                value: col.id,
+                label: col.label || col.name || col.fieldname || col.id,
+                value: col.fieldname || col.id,
                 checked: !col.hidden
             }))
         }],
@@ -28,26 +28,24 @@ function bsp_open_pick_columns_dialog(report) {
         primary_action: (values) => {
             let selected = values.columns || [];
             report.columns.forEach((col) => {
-                col.hidden = !selected.includes(col.id);
+                let col_id = col.fieldname || col.id;
+                col.hidden = !selected.includes(col_id);
             });
             report.render_datatable();
 
-            // Save to DocType
-            let prefs = report._bsp_col_prefs;
-            let docname = prefs && prefs.docname;
-            if (docname) {
-                frappe.db.set_value("Report Column Visibility", docname, "visible_columns", JSON.stringify(selected));
-                prefs.visible_columns = selected;
-            } else {
-                frappe.db.insert({
-                    doctype: "Report Column Visibility",
-                    user: frappe.session.user,
+            // Save to DocType safely via Python API to prevent duplicates
+            frappe.call({
+                method: "bsp_engineering.api.report_prefs.save_column_visibility",
+                args: {
                     report_name: report.report_name,
                     visible_columns: JSON.stringify(selected)
-                }).then(doc => {
-                    report._bsp_col_prefs = { docname: doc.name, visible_columns: selected };
-                });
-            }
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        report._bsp_col_prefs = { docname: r.message, visible_columns: selected };
+                    }
+                }
+            });
             d.hide();
         }
     });
@@ -82,7 +80,8 @@ function bsp_apply_column_prefs(report, visible_columns) {
         if (col._bsp_original_hidden === undefined) {
             col._bsp_original_hidden = col.hidden || false;
         }
-        col.hidden = !visible_columns.includes(col.id);
+        let col_id = col.fieldname || col.id;
+        col.hidden = !visible_columns.includes(col_id);
     });
 }
 
@@ -123,44 +122,47 @@ let bsp_patch_interval = setInterval(() => {
         bsp_add_pick_columns_button(this);
     };
 
-    // Hook into refresh to load prefs after data is available
+    // Hook into refresh to load prefs EARLY but after report_name is set
     const _orig_refresh = frappe.views.QueryReport.prototype.refresh;
-    frappe.views.QueryReport.prototype.refresh = function(route_options) {
-        return _orig_refresh.call(this, route_options);
+    frappe.views.QueryReport.prototype.refresh = function() {
+        let res = _orig_refresh.apply(this, arguments);
+        this._bsp_load_and_apply_prefs();
+        return res;
     };
-
-    // Hook into get_report_content (called after data load) to fetch and apply prefs
-    const _orig_render_report = frappe.views.QueryReport.prototype.render_report;
-    if (_orig_render_report) {
-        frappe.views.QueryReport.prototype.render_report = function() {
-            let result = _orig_render_report.call(this);
-            this._bsp_load_and_apply_prefs();
-            return result;
-        };
-    }
 
     frappe.views.QueryReport.prototype._bsp_load_and_apply_prefs = function() {
         let report = this;
+        if (!report.report_name) return; // Wait until report_name is set
         if (report._bsp_prefs_loaded_for === report.report_name) return;
         report._bsp_prefs_loaded_for = report.report_name;
 
         frappe.db.get_list("Report Column Visibility", {
             filters: { user: frappe.session.user, report_name: report.report_name },
             fields: ["name", "visible_columns"],
+            order_by: "creation desc",
             limit: 1
         }).then(records => {
             if (records && records.length) {
                 let visible = JSON.parse(records[0].visible_columns);
                 report._bsp_col_prefs = { docname: records[0].name, visible_columns: visible };
-                bsp_apply_column_prefs(report, visible);
-                if (report.datatable) {
-                    report.render_datatable();
+                if (report.columns && report.columns.length) {
+                    bsp_apply_column_prefs(report, visible);
+                    if (report.datatable) {
+                        report.render_datatable();
+                    }
                 }
             } else {
                 report._bsp_col_prefs = null;
             }
         });
     };
+
+    // If a report is already active (e.g. hard refresh race condition), trigger load immediately
+    if (frappe.query_report && frappe.query_report.report_name) {
+        frappe.query_report._bsp_load_and_apply_prefs();
+        // Since setup_page_head might have already run, inject button if missing
+        bsp_add_pick_columns_button(frappe.query_report);
+    }
 
 }, 100);
 
