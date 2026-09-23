@@ -29,3 +29,5 @@ bsp_engineering.patches.v1_0.add_warehouse_cash_accounts
 bsp_engineering.patches.v1_0.flatten_production_plan_work_order_items
 bsp_engineering.patches.v1_0.seed_item_category_sort_order
 bsp_engineering.patches.v1_0.seed_warehouse_sort_order
+bsp_engineering.patches.v1_0.add_cheque_payment_fields
+bsp_engineering.patches.v1_0.setup_cheque_mode_of_payment
