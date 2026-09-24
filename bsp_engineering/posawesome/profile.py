@@ -15,7 +15,9 @@ def get_active_pos_profile(user=None):
 	)
 	profile_name = rows[0].parent if rows else None
 
-	if not profile_name:
+	# POS Settings has no default "pos_profile" field on this ERPNext version;
+	# reading it anyway throws for every user not assigned to a POS Profile.
+	if not profile_name and frappe.get_meta('POS Settings').has_field('pos_profile'):
 		profile_name = frappe.db.get_single_value('POS Settings', 'pos_profile')
 
 	if not profile_name:

@@ -40,6 +40,10 @@ AUTO_SUBMIT_EXCLUDED_DOCTYPES = frozenset(
 		# submit() call operating on an already-submitted doc, which throws
 		# UpdateAfterSubmitError.
 		'Additional Salary',
+		# POS Awesome keeps a Requisition as a Draft while it is "Sent" so the
+		# requester can still correct it; it is submitted when marked "Seen"
+		# (posawesome/api/requisitions.set_requisition_status).
+		'Requisition',
 	}
 )
 
