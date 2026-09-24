@@ -89,6 +89,8 @@ def _create_and_submit_stock_entry(wo_name, purpose, qty, posting_date=None):
     se_data = make_stock_entry(wo_name, purpose, qty)
     se_data.pop('name', None)
     se = frappe.get_doc(se_data)
+    if purpose == 'Manufacture':
+        _use_work_order_raw_materials(se, wo_name, qty)
     # A backdated Production Plan must post its stock movements on the plan's
     # own date, not today. Without set_posting_time, Stock Entry.validate()
     # resets posting_date to now.
@@ -101,3 +103,64 @@ def _create_and_submit_stock_entry(wo_name, purpose, qty, posting_date=None):
     se.flags.ignore_permissions = True
     se.flags.ignore_workflow = True
     se.submit()
+
+
+def _use_work_order_raw_materials(se, wo_name, qty):
+    """With backflush_raw_materials_based_on = "BOM", ERPNext builds the
+    Manufacture entry's raw material rows from the BOM, ignoring the Work
+    Order's own required_items. A plan created with edited raw materials
+    (see overrides/production_plan.apply_raw_material_overrides) has a Work
+    Order whose required_items differ from the BOM -- consume those instead.
+    Leaves the entry untouched when they already match (the normal case)."""
+    wo = frappe.get_doc('Work Order', wo_name)
+    if not flt(wo.qty):
+        return
+
+    ratio = flt(qty) / flt(wo.qty)
+    expected = {}
+    for row in wo.required_items:
+        # Same filter ERPNext's get_bom_items_as_dict applies.
+        if row.include_item_in_manufacturing:
+            expected[row.item_code] = expected.get(row.item_code, 0) + flt(row.required_qty) * ratio
+
+    raw_rows = [row for row in se.items if row.s_warehouse and not row.t_warehouse]
+    current = {}
+    for row in raw_rows:
+        current[row.item_code] = current.get(row.item_code, 0) + flt(row.qty)
+    if set(current) == set(expected) and all(
+        abs(current[code] - expected[code]) < 1e-6 for code in expected
+    ):
+        return
+
+    from_warehouse = (
+        wo.wip_warehouse
+        if not wo.skip_transfer or wo.from_wip_warehouse
+        else None
+    )
+    template = raw_rows[0].as_dict() if raw_rows else {}
+    se.items = [row for row in se.items if row not in raw_rows]
+    required_by_code = {row.item_code: row for row in wo.required_items}
+    for item_code, required_qty in expected.items():
+        if required_qty <= 0:
+            continue
+        wo_row = required_by_code[item_code]
+        se.append(
+            'items',
+            {
+                'item_code': item_code,
+                'item_name': wo_row.item_name,
+                'description': wo_row.description,
+                'qty': required_qty,
+                'transfer_qty': required_qty,
+                'uom': wo_row.stock_uom,
+                'stock_uom': wo_row.stock_uom,
+                'conversion_factor': 1,
+                's_warehouse': from_warehouse or wo_row.source_warehouse or template.get('s_warehouse'),
+                'expense_account': template.get('expense_account'),
+                'cost_center': template.get('cost_center'),
+            },
+        )
+    # Raw materials first, finished good last -- same order ERPNext uses.
+    se.items = sorted(se.items, key=lambda row: 1 if row.t_warehouse else 0)
+    for idx, row in enumerate(se.items, start=1):
+        row.idx = idx
