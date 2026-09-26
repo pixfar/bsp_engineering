@@ -3,3 +3,4 @@
 // name -- a plain /assets/... path is cached by browsers for 12 hours and
 // keeps serving old code after a change.
 import "./bsp_column_picker.js";
+import "./item_auto_code.js";

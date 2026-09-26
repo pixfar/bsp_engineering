@@ -86,6 +86,7 @@ doctype_js = {
 	"Delivery Note": "public/js/delivery_note.js",
 	"Requisition": "bsp_engineering/doctype/requisition/requisition.js",
 	"Material Transfer": "bsp_engineering/doctype/material_transfer/material_transfer.js",
+	"Item": "public/js/item.js",
 }
 doctype_list_js = {
 	"Purchase Invoice": "public/js/purchase_invoice_list.js",
@@ -170,11 +171,13 @@ before_migrate = [
 permission_query_conditions = {
 	"Sales Invoice": "bsp_engineering.utils.invoice_permissions.get_sales_invoice_permission_query",
 	"Purchase Invoice": "bsp_engineering.utils.invoice_permissions.get_purchase_invoice_permission_query",
+	"Production Requirement": "bsp_engineering.bsp_engineering.doctype.production_requirement.production_requirement.get_permission_query_conditions",
 }
 
 has_permission = {
 	"Sales Invoice": "bsp_engineering.utils.invoice_permissions.has_sales_invoice_permission",
 	"Purchase Invoice": "bsp_engineering.utils.invoice_permissions.has_purchase_invoice_permission",
+	"Production Requirement": "bsp_engineering.bsp_engineering.doctype.production_requirement.production_requirement.has_permission",
 }
 
 # DocType Class
@@ -194,6 +197,7 @@ doc_events = {
 		'on_update': 'bsp_engineering.doc_events.auto_submit.auto_submit_after_save',
 	},
 	'Item': {
+		'before_insert': 'bsp_engineering.doc_events.item.auto_item_code.set_auto_item_code',
 		'before_validate': (
 			'bsp_engineering.doc_events.item.auto_barcode.ensure_auto_barcode'
 		),
