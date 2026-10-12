@@ -31,6 +31,17 @@ function bsp_open_pick_columns_dialog(report) {
                 let col_id = col.fieldname || col.id;
                 col.hidden = !selected.includes(col_id);
             });
+
+            // Update the cached prefs to the NEW selection BEFORE rendering.
+            // render_datatable() re-applies report._bsp_col_prefs via its hook;
+            // if that still holds the previously saved columns it overwrites the
+            // new selection, so the first Apply appeared to do nothing and a
+            // second click was needed. The async save callback below refreshes
+            // docname once the server confirms it.
+            report._bsp_col_prefs = {
+                docname: report._bsp_col_prefs && report._bsp_col_prefs.docname,
+                visible_columns: selected
+            };
             report.render_datatable();
 
             // Save to DocType safely via Python API to prevent duplicates
