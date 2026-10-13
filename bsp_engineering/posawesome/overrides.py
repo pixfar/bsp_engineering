@@ -32,8 +32,16 @@ def _load_pos_profile(pos_profile=None):
 
 
 def _sync_payload_warehouse(payload):
+	"""Stock lines follow the sale warehouse; non-stock lines get none.
+
+	Stock/non-stock comes from the Item master via apply_sale_warehouse --
+	not from row['is_stock_item'], which is missing on any row the client
+	reloaded from the server (so those rows used to be skipped).
+	"""
 	if not isinstance(payload, dict):
 		return
+
+	from posawesome.posawesome.utils.invoice_warehouse import apply_sale_warehouse
 
 	profile = None
 	if payload.get('pos_profile'):
@@ -42,27 +50,16 @@ def _sync_payload_warehouse(payload):
 
 	if not can_change_pos_warehouse():
 		source = resolve_pos_warehouse(company=company, pos_profile=profile)
-		if not source:
-			return
-		payload['set_warehouse'] = source
-		for row in payload.get('items') or []:
-			row['warehouse'] = source
-		for row in payload.get('packed_items') or []:
-			row['warehouse'] = source
-		return
-
-	source = payload.get('set_warehouse')
-	if not source:
-		return
-	for row in payload.get('items') or []:
-		row['warehouse'] = source
-	for row in payload.get('packed_items') or []:
-		row['warehouse'] = source
+	else:
+		source = payload.get('set_warehouse')
+	apply_sale_warehouse(payload, source)
 
 
 def _sync_result_warehouse(result):
 	if not isinstance(result, dict):
 		return result
+
+	from posawesome.posawesome.utils.invoice_warehouse import apply_sale_warehouse
 
 	if not can_change_pos_warehouse():
 		profile = _load_pos_profile(result.get('pos_profile'))
@@ -70,18 +67,13 @@ def _sync_result_warehouse(result):
 			company=result.get('company') or profile.get('company'),
 			pos_profile=profile,
 		)
-		if source:
-			result['set_warehouse'] = source
 	else:
 		source = result.get('set_warehouse')
 
-	if not source:
-		return result
-	for row in result.get('items') or []:
-		if row.get('is_stock_item'):
-			row['warehouse'] = source
-	for row in result.get('packed_items') or []:
-		row['warehouse'] = source
+	if result.get('items') is not None:
+		apply_sale_warehouse(result, source)
+	elif source:
+		result['set_warehouse'] = source
 	return result
 
 
@@ -137,11 +129,14 @@ def submit_invoice(invoice, data, submit_in_background=False):
 		submit_invoice as _submit_invoice,
 	)
 
-	payload = json.loads(data) if isinstance(data, str) else (data or {})
+	# `invoice` is the document being submitted; `data` only carries
+	# payment/submission options. This used to sync `data` -- which has no
+	# items -- so the actual invoice reached submit uncorrected.
+	payload = json.loads(invoice) if isinstance(invoice, str) else (invoice or {})
 	_sync_payload_warehouse(payload)
 	result = _submit_invoice(
-		invoice,
-		json.dumps(payload) if isinstance(data, str) else payload,
+		json.dumps(payload) if isinstance(invoice, str) else payload,
+		data,
 		submit_in_background=submit_in_background,
 	)
 	return _sync_result_warehouse(result)
