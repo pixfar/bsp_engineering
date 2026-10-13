@@ -31,26 +31,18 @@ jobs:
       - name: Build and Push Frappe Docker Image
         run: |
           # Define apps JSON and encode as base64
-          APPS_JSON='[
+           APPS_JSON='[
             {
               "url": "https://github.com/frappe/erpnext",
-              "branch": "version-16"
+              "branch": "version-15"
             },
             {
               "url": "https://github.com/frappe/hrms.git",
-              "branch": "version-16"
+              "branch": "version-15"
             },
             {
               "url": "https://gitlab.com/pixfar/whitelabel.git",
               "branch": "master"
-            },
-            {
-              "url": "https://github.com/pixfar/flex_erp.git",
-              "branch": "master"
-            },
-            {
-              "url": "https://github.com/frappe/lending.git",
-              "branch": "version-16"
             },
             {
               "url": "https://github.com/pixfar/bsp_engineering.git",
@@ -61,28 +53,24 @@ jobs:
               "branch": "master"
             },
             {
-              "url": "https://github.com/KhaledBinAmir/biometric_integration.git",
-              "branch": "develop"
-            },
-            {
-              "url": "https://github.com/Solvronix/Solvronix-Desk.git",
-              "branch": "main"
+              "url": "https://github.com/frappe/lending.git",
+              "branch": "version-15"
             }
           ]'
 
           APPS_JSON_BASE64=$(echo "$APPS_JSON" | base64 -w 0)
 
           # Define image tag
-          IMAGE_TAG="registry.gitlab.com/pixfar/pixfar-container-registry/erp-all-demo:bsp-v16"
+          IMAGE_TAG="registry.gitlab.com/pixfar/pixfar-container-registry/bsp-engineering-erp:latest"
 
           # Build and push to registry
           docker buildx build \
             --no-cache \
             --platform linux/amd64 \
             --build-arg FRAPPE_PATH=https://github.com/frappe/frappe \
-            --build-arg FRAPPE_BRANCH=version-16 \
-            --build-arg PYTHON_VERSION=3.14.0 \
-            --build-arg NODE_VERSION=24.20.0 \
+            --build-arg FRAPPE_BRANCH=version-15 \
+            --build-arg PYTHON_VERSION=3.11.9 \
+            --build-arg NODE_VERSION=20.19.2 \
             --build-arg APPS_JSON_BASE64="$APPS_JSON_BASE64" \
             --tag "$IMAGE_TAG" \
             --file images/custom/Containerfile \
