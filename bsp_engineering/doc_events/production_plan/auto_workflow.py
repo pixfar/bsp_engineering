@@ -37,6 +37,8 @@ def _complete_all_work_orders(doc):
         fields=['name', 'skip_transfer', 'qty', 'produced_qty'],
     )
 
+    _ensure_raw_materials_in_stock(work_orders)
+
     completed = 0
     for wo in work_orders:
         remaining_qty = flt(wo.qty) - flt(wo.produced_qty)
@@ -71,6 +73,113 @@ def _complete_all_work_orders(doc):
             indicator='green',
             alert=True,
         )
+
+
+def _ensure_raw_materials_in_stock(work_orders):
+    """Raise once with every raw material that is short, before any Stock
+    Entry is made. Without this, ERPNext's own stock check stops at the first
+    short item of the first Work Order, so the user had to fix shortages one
+    at a time, resubmitting after each.
+
+    Needs are summed per item and source warehouse across all Work Orders, in
+    the same quantities _create_and_submit_stock_entry() will move: the
+    pending transfer qty when material is transferred to WIP first, otherwise
+    the remaining share of each required item. Items allowed to go negative
+    (Stock Settings or the Item) are skipped, as ERPNext would."""
+    needed = {}  # (item_code, warehouse) -> qty
+    item_names = {}
+    for wo in work_orders:
+        remaining_qty = flt(wo.qty) - flt(wo.produced_qty)
+        if remaining_qty <= 0:
+            continue
+        wo_doc = frappe.get_doc('Work Order', wo.name)
+        ratio = remaining_qty / flt(wo_doc.qty) if flt(wo_doc.qty) else 0
+        for row in wo_doc.required_items:
+            if not row.include_item_in_manufacturing:
+                continue
+            if wo_doc.skip_transfer:
+                qty = flt(row.required_qty) * ratio
+                warehouse = (
+                    wo_doc.wip_warehouse
+                    if wo_doc.from_wip_warehouse
+                    else row.source_warehouse or wo_doc.source_warehouse
+                )
+            else:
+                qty = flt(row.required_qty) - flt(row.transferred_qty)
+                warehouse = row.source_warehouse or wo_doc.source_warehouse
+            if qty <= 0 or not warehouse:
+                continue
+            key = (row.item_code, warehouse)
+            needed[key] = needed.get(key, 0) + qty
+            item_names[row.item_code] = row.item_name
+
+    if not needed or frappe.db.get_single_value('Stock Settings', 'allow_negative_stock'):
+        return
+
+    item_codes = list({code for code, _wh in needed})
+    negative_ok = set(
+        frappe.get_all(
+            'Item',
+            filters={'name': ['in', item_codes], 'allow_negative_stock': 1},
+            pluck='name',
+        )
+    )
+    available = {
+        (b.item_code, b.warehouse): flt(b.actual_qty)
+        for b in frappe.get_all(
+            'Bin',
+            filters={
+                'item_code': ['in', item_codes],
+                'warehouse': ['in', list({wh for _code, wh in needed})],
+            },
+            fields=['item_code', 'warehouse', 'actual_qty'],
+        )
+    }
+
+    shortages = []
+    for (item_code, warehouse), qty in sorted(needed.items()):
+        if item_code in negative_ok:
+            continue
+        in_stock = available.get((item_code, warehouse), 0)
+        if in_stock + 1e-9 < qty:
+            shortages.append((item_code, warehouse, qty, in_stock))
+    if not shortages:
+        return
+
+    esc = frappe.utils.escape_html
+    rows = ''.join(
+        '<tr><td>{0}</td><td>{1}</td><td>{2}</td>'
+        '<td class="text-right">{3}</td><td class="text-right">{4}</td>'
+        '<td class="text-right"><b>{5}</b></td></tr>'.format(
+            esc(item_code),
+            esc(item_names.get(item_code) or ''),
+            esc(warehouse),
+            frappe.format(qty, 'Float'),
+            frappe.format(in_stock, 'Float'),
+            frappe.format(qty - in_stock, 'Float'),
+        )
+        for item_code, warehouse, qty, in_stock in shortages
+    )
+    frappe.throw(
+        _('{0} raw material(s) are short. Add stock for all of them, then mark the plan complete again.').format(
+            len(shortages)
+        )
+        + '<table class="table table-bordered table-sm mt-3"><thead><tr>'
+        + ''.join(
+            f'<th{cls}>{_(label)}</th>'
+            for label, cls in [
+                ('Item Code', ''),
+                ('Item Name', ''),
+                ('Warehouse', ''),
+                ('Required', ' class="text-right"'),
+                ('In Stock', ' class="text-right"'),
+                ('Short', ' class="text-right"'),
+            ]
+        )
+        + f'</tr></thead><tbody>{rows}</tbody></table>',
+        title=_('Insufficient Stock'),
+        exc=frappe.ValidationError,
+    )
 
 
 def _create_and_submit_stock_entry(wo_name, purpose, qty, posting_date=None):
