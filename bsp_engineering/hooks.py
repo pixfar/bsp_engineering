@@ -320,6 +320,13 @@ scheduler_events = {
 #
 override_whitelisted_methods = {
 	'frappe.desk.query_report.export_query': 'bsp_engineering.overrides.query_report.export_query',
+	# POS Awesome-style Item search (Bangla digits, multi-word, ranked,
+	# paginated) for every Item Link / filter / report in Desk - see
+	# bsp_engineering/api/item_search.py.
+	'frappe.desk.search.search_link': 'bsp_engineering.api.item_search.search_link',
+	'erpnext.controllers.queries.item_query': 'bsp_engineering.api.item_search.item_query',
+	'frappe.desk.reportview.get': 'bsp_engineering.api.item_search.reportview_get',
+	'frappe.desk.reportview.get_count': 'bsp_engineering.api.item_search.reportview_get_count',
 	'posawesome.posawesome.api.items.get_items': (
 		'bsp_engineering.posawesome.overrides.get_items'
 	),
