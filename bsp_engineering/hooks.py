@@ -41,6 +41,30 @@ fixtures = [
     { "dt": "Workflow" },
     { "dt": "Role", "filters": [["name", "in", ["BSP Admin", "BSP Viewer"]]] },
     { "dt": "Custom DocPerm", "filters": [["role", "=", "BSP Viewer"]] },
+    # BSP Viewer on standard ERPNext reports. A Custom Role replaces the
+    # report's own roles, so each record lists ERPNext's roles plus BSP
+    # Viewer - this keeps erpnext's report JSON untouched for updates.
+    {
+        "dt": "Custom Role",
+        "filters": [
+            [
+                "report",
+                "in",
+                [
+                    "Accounts Payable Summary",
+                    "Accounts Receivable Summary",
+                    "Customer Ledger Summary",
+                    "Item-wise Purchase Register",
+                    "Item-wise Sales Register",
+                    "Profit and Loss Statement",
+                    "Purchase Register",
+                    "Sales Register",
+                    "Stock Balance",
+                    "Stock Ledger",
+                ],
+            ]
+        ],
+    },
 ]
 
 # Each item in the list will be shown as an app in the apps page

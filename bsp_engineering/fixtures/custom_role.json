@@ -1,0 +1,334 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.579648",
+  "name": "idc8jij8cc",
+  "page": null,
+  "ref_doctype": "Purchase Invoice",
+  "report": "Accounts Payable Summary",
+  "roles": [
+   {
+    "parent": "idc8jij8cc",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "idc8jij8cc",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Purchase User"
+   },
+   {
+    "parent": "idc8jij8cc",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "idc8jij8cc",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Auditor"
+   },
+   {
+    "parent": "idc8jij8cc",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.808826",
+  "name": "ide9ghe7ph",
+  "page": null,
+  "ref_doctype": "Sales Invoice",
+  "report": "Accounts Receivable Summary",
+  "roles": [
+   {
+    "parent": "ide9ghe7ph",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ide9ghe7ph",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "ide9ghe7ph",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.815568",
+  "name": "ideenqjpre",
+  "page": null,
+  "ref_doctype": "Sales Invoice",
+  "report": "Customer Ledger Summary",
+  "roles": [
+   {
+    "parent": "ideenqjpre",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ideenqjpre",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "ideenqjpre",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.820845",
+  "name": "idepqi4tr9",
+  "page": null,
+  "ref_doctype": "Purchase Invoice",
+  "report": "Item-wise Purchase Register",
+  "roles": [
+   {
+    "parent": "idepqi4tr9",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "idepqi4tr9",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Purchase User"
+   },
+   {
+    "parent": "idepqi4tr9",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Auditor"
+   },
+   {
+    "parent": "idepqi4tr9",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "idepqi4tr9",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.827742",
+  "name": "ideupsmmj0",
+  "page": null,
+  "ref_doctype": "Sales Invoice",
+  "report": "Item-wise Sales Register",
+  "roles": [
+   {
+    "parent": "ideupsmmj0",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ideupsmmj0",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "ideupsmmj0",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.832853",
+  "name": "ide6883ihj",
+  "page": null,
+  "ref_doctype": "GL Entry",
+  "report": "Profit and Loss Statement",
+  "roles": [
+   {
+    "parent": "ide6883ihj",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "ide6883ihj",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ide6883ihj",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Auditor"
+   },
+   {
+    "parent": "ide6883ihj",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.838668",
+  "name": "ide080g7nk",
+  "page": null,
+  "ref_doctype": "Purchase Invoice",
+  "report": "Purchase Register",
+  "roles": [
+   {
+    "parent": "ide080g7nk",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "ide080g7nk",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Purchase User"
+   },
+   {
+    "parent": "ide080g7nk",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ide080g7nk",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Auditor"
+   },
+   {
+    "parent": "ide080g7nk",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.844738",
+  "name": "ide8bebfsq",
+  "page": null,
+  "ref_doctype": "Sales Invoice",
+  "report": "Sales Register",
+  "roles": [
+   {
+    "parent": "ide8bebfsq",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ide8bebfsq",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "ide8bebfsq",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.849420",
+  "name": "ide0s8q49e",
+  "page": null,
+  "ref_doctype": "Stock Ledger Entry",
+  "report": "Stock Balance",
+  "roles": [
+   {
+    "parent": "ide0s8q49e",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Stock User"
+   },
+   {
+    "parent": "ide0s8q49e",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ide0s8q49e",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Custom Role",
+  "modified": "2026-10-19 19:53:59.854132",
+  "name": "ide4rfvauh",
+  "page": null,
+  "ref_doctype": "Stock Ledger Entry",
+  "report": "Stock Ledger",
+  "roles": [
+   {
+    "parent": "ide4rfvauh",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Stock User"
+   },
+   {
+    "parent": "ide4rfvauh",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "ide4rfvauh",
+    "parentfield": "roles",
+    "parenttype": "Custom Role",
+    "role": "BSP Viewer"
+   }
+  ]
+ }
+]
