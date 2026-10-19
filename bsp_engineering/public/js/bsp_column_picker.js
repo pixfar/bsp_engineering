@@ -376,20 +376,18 @@ setInterval(() => {
 }, 1000);
 
 // -----------------------------------------------------------------------
-// BSP: Item link cells in Query Reports show the item code only.
+// BSP: Item links show the item code only, everywhere.
 // ERPNext registers frappe.form.link_formatters["Item"], which renders an
-// Item Link as "code: item_name" whenever the row also has item_name.
-// Query reports already carry a separate Item Name column, so the name
-// shows twice. Wrap the formatter (whenever ERPNext assigns it - this file
-// may load before erpnext's bundle) and skip it on query-report pages.
-// Forms, child tables and list views keep the ERPNext behaviour.
+// Item Link as "code: item_name" whenever the row also has item_name - in
+// query reports, child-table cells, list views and form link titles alike.
+// The item name has its own column/field wherever it is needed, so wrap the
+// formatter (whenever ERPNext assigns it - this file may load before
+// erpnext's bundle) and return just the code. Only a blank code still goes
+// to ERPNext, which shows the row's item_name for a free-text line instead.
 // -----------------------------------------------------------------------
 (function bsp_patch_item_link_formatter() {
     const formatters = frappe.provide("frappe.form.link_formatters");
     let _item_formatter = formatters["Item"];
-
-    const is_query_report = () =>
-        frappe.get_route && (frappe.get_route() || [])[0] === "query-report";
 
     Object.defineProperty(formatters, "Item", {
         configurable: true,
@@ -397,7 +395,7 @@ setInterval(() => {
         get() {
             if (!_item_formatter) return undefined;
             return function (value, doc, docfield) {
-                if (is_query_report()) return value;
+                if (value) return value;
                 return _item_formatter.call(this, value, doc, docfield);
             };
         },
