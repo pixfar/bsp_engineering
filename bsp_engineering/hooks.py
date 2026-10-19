@@ -12,7 +12,10 @@ app_license = "mit"
 
 # Custom CSS
 
-app_include_css = "/assets/bsp_engineering/css/theme.css"
+app_include_css = [
+    "/assets/bsp_engineering/css/theme.css",
+    "bsp_report.bundle.css",
+]
 app_include_js = [
     "bsp_engineering.bundle.js"
 ]

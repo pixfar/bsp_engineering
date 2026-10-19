@@ -1,0 +1,38 @@
+/* BSP report look for Query Reports on screen: column headers centred, white
+   on the BSP navy band, and the total row tinted. The same colours are used
+   for report PDFs/prints (public/js/report_styling.js) and Excel exports
+   (overrides/query_report.py) -- keep the three in step. */
+
+.page-container[data-page-route="query-report"] .datatable .dt-header .dt-row-header {
+	--dt-header-cell-bg: #1f3a5f;
+	background-color: #1f3a5f;
+}
+
+/* Frappe sets every datatable cell's colour with !important, hence the
+   longer selectors and !important here. */
+.page-container[data-page-route="query-report"] .datatable .dt-header .dt-row-header .dt-cell--header,
+.page-container[data-page-route="query-report"] .datatable .dt-header .dt-row-header .dt-cell--header .dt-cell__content {
+	background-color: #1f3a5f !important;
+	color: #ffffff !important;
+}
+
+.page-container[data-page-route="query-report"] .datatable .dt-header .dt-row-header .dt-cell--header {
+	border-color: #34537a;
+	vertical-align: middle;
+}
+
+.page-container[data-page-route="query-report"] .datatable .dt-header .dt-row-header .dt-cell--header .dt-cell__content {
+	text-align: center !important;
+	font-weight: 600;
+}
+
+/* Sort arrow and column dropdown sit on the navy band too. */
+.page-container[data-page-route="query-report"] .datatable .dt-header .dt-row-header .sort-indicator,
+.page-container[data-page-route="query-report"] .datatable .dt-header .dt-row-header .dt-dropdown__toggle {
+	color: #ffffff;
+}
+
+.page-container[data-page-route="query-report"] .datatable .dt-row.dt-row-totalRow .dt-cell,
+.page-container[data-page-route="query-report"] .datatable .dt-row.dt-row-totalRow .dt-cell__content {
+	background-color: #dce6f2;
+}

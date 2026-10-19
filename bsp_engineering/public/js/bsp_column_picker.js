@@ -174,6 +174,10 @@ const BSP_FIT_MAX_WIDTH = 240;
 const BSP_FIT_MAX_TEXT_WIDTH = 200;
 const BSP_FIT_TEXT_FIELDTYPES = ["Data", "Small Text", "Text", "Long Text", "Text Editor", "Dynamic Link"];
 const BSP_FIT_PADDING = 22;
+// Header labels are centred with 6px padding each side, plus the cell border
+// and some slack for font rounding. Labels only wrap between words, so every
+// header word must fit inside this.
+const BSP_FIT_HEADER_PADDING = 24;
 const BSP_FIT_SAMPLE_ROWS = 100;
 let bsp_fit_canvas = null;
 
@@ -220,8 +224,9 @@ function bsp_inject_fit_styles() {
         }
         .bsp-fit-report .dt-row-header .dt-cell--header .dt-cell__content {
             word-break: normal;
-            overflow-wrap: break-word;
-            padding-right: 18px;
+            overflow-wrap: normal;
+            padding-left: 6px;
+            padding-right: 6px;
         }
     `;
     document.head.appendChild(style);
@@ -256,7 +261,8 @@ function bsp_fit_columns_to_window(report) {
     const needed = columns.map((col) => {
         // Header can wrap, so it only needs room for its longest word.
         const label_words = String(col.name || col.label || "").split(/\s+/);
-        let need = Math.max(...label_words.map((w) => bsp_text_width(w, header_font)));
+        const header_need = Math.max(...label_words.map((w) => bsp_text_width(w, header_font)));
+        let need = header_need + BSP_FIT_HEADER_PADDING - BSP_FIT_PADDING;
         for (const row of rows) {
             if (!row) continue;
             const text = bsp_cell_text(row[col.fieldname], col, row);
