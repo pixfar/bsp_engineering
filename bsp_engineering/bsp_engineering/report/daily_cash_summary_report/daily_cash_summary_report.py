@@ -2,42 +2,27 @@
 # For license information, please see license.txt
 
 """Warehouse-wise, day-wise cash summary matching the branch cash-box
-workflow: each branch sells during the day, receives fund transfers into
-the till, pays small local expenses and local purchases out of the till,
-and deposits what's left to the bank (typically the next morning).
+workflow: each branch sells during the day, receives payments and fund
+transfers into the till, pays small local expenses and local purchases out of
+the till, and deposits what's left to the bank (typically the next morning).
 
-For each warehouse and day:
-- Sales Collection Summary -- every Sales Invoice on its own line, plus Total.
-  Sales Returns (is_return=1) are included with a negative amount, so a
-  refund correctly *reduces* the day's collection/balance -- cash going back
-  out to the customer.
-- Purchase Summary -- every Purchase Invoice on its own line, plus Total.
-  Purchase Returns (is_return=1) are included with a negative amount, so a
-  supplier refund correctly *reduces* the day's purchase outflow, i.e.
-  *increases* the balance -- cash coming back into the till.
-- Fund Transfer -- Internal Transfer Payment Entries attributed to the
-  warehouse via custom_warehouse (custom_fund_transfer=1), PLUS manual
-  Journal Entry adjustments against that warehouse's own Cash / Bank
-  Accounts (Warehouse.custom_cash_accounts -- e.g. a till-count correction,
-  or an opening balance booked straight to the account) -- both shown as
-  separate traceable rows but summed into the same Total.
-- Cash Out Outflow -- every Expense Claim on its own line, plus Total Expense.
-- BSP Deposit -- every actual BSP Daily Deposit on its own line, plus Total
-  Deposited, plus an "Expected Deposit" reference line (= Income, i.e.
-  Collection + Fund Transfer - Expense - Purchase Paid) so a branch that
-  deposits correctly reconciles to zero.
-- Opening/Closing Balance, carried forward day to day per warehouse.
-  Closing Balance = Opening Balance + Income - Bank Deposit, where Income is
-  Collection + Fund Transfer - Expense - Purchase Paid -- so on a day where
-  the branch deposits exactly what it should, nothing carries over.
+Every warehouse-day is built by get_day_summary() -- the same function POS
+Awesome's Daily Cash Summary page and PDF use -- so this report shows exactly
+the same sections and figures:
+- Sales Collection Summary -- each Sales Invoice of the day; Received is what
+  was paid against it by that day's Payment Entries.
+- Customer Payments -- that day's customer Payment Entries for older invoices
+  (or on account).
+- Purchase Summary / Supplier Payments -- the same, for money paid out.
+- Fund Transfer, Journal Entries (against the till's cash accounts), Cash Out
+  Outflow (Expense Claim lines) and BSP Deposit.
+- Opening/Closing Balance. For a warehouse with Cash / Bank Accounts mapped,
+  Closing Balance is the real ledger balance and anything posted there that
+  isn't itemised shows as Other Ledger Activity.
 
 "Selling/Purchase Amount" is the invoice's gross total before discount
-(grand_total + discount_amount); "Received/Paid Amount" (collection) is what
-has been collected/paid against that invoice so far
-(grand_total - outstanding_amount). A return invoice's grand_total is
-negative, so both figures -- and everything derived from them -- net out
-automatically once the return is entered; no separate "return" bookkeeping
-is needed.
+(grand_total + discount_amount). Returns (is_return=1) carry a negative
+grand_total, so they net out automatically.
 """
 
 import frappe
@@ -58,25 +43,26 @@ def execute(filters=None):
 		frappe.throw(_("From Date cannot be after To Date."))
 
 	columns = get_columns()
-	data = get_data(filters, from_date, to_date)
-	return columns, data
+	data, report_summary = get_data(filters, from_date, to_date)
+	return columns, data, None, None, report_summary
 
 
 def get_columns():
 	return [
 		{"label": _("Warehouse"), "fieldname": "warehouse", "fieldtype": "Data", "width": 170},
-		{"label": _("Date"), "fieldname": "date", "fieldtype": "Data", "width": 95},
+		{"label": _("Date"), "fieldname": "date", "fieldtype": "Date", "width": 95},
 		{"label": _("S.L"), "fieldname": "sl", "fieldtype": "Data", "width": 40},
 		{"label": _("Particulars"), "fieldname": "particulars", "fieldtype": "Data", "width": 230},
-		{"label": _("Description"), "fieldname": "description", "fieldtype": "Data", "width": 170},
-		{"label": _("Reference No"), "fieldname": "reference_no", "fieldtype": "Data", "width": 140},
+		{"label": _("Description"), "fieldname": "description", "fieldtype": "Data", "width": 230},
+		{"label": _("Reference No"), "fieldname": "reference_no", "fieldtype": "Data", "width": 150},
 		{"label": _("Selling Amount"), "fieldname": "selling_amount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Purchase Amount"), "fieldname": "purchase_amount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Discount Amount"), "fieldname": "discount_amount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Due Amount"), "fieldname": "due_amount", "fieldtype": "Currency", "width": 110},
 		{"label": _("Received Amount"), "fieldname": "received_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Paid Amount"), "fieldname": "paid_amount", "fieldtype": "Currency", "width": 130},
-		{"label": _("Fund Transfer"), "fieldname": "fund_transfer_amount", "fieldtype": "Currency", "width": 150},
+		{"label": _("Fund Transfer"), "fieldname": "fund_transfer_amount", "fieldtype": "Currency", "width": 130},
+		{"label": _("Journal Amount"), "fieldname": "journal_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Expense Amount"), "fieldname": "expense_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Deposit Amount"), "fieldname": "deposit_amount", "fieldtype": "Currency", "width": 130},
 		{"label": _("Balance"), "fieldname": "balance_amount", "fieldtype": "Currency", "width": 130},
@@ -394,6 +380,333 @@ def get_opening_balances(company, warehouse, from_date):
 	return balances
 
 
+def get_party_payments(company, warehouse, accounts, report_date):
+	"""Customer / Supplier Payment Entries posted on report_date that moved
+	money through this warehouse's till -- its cash account(s) as paid_to /
+	paid_from, or tagged with the warehouse (custom_warehouse). Covers the
+	sale-time payments POS creates as well as payments made later from
+	Payments > Customer / Supplier.
+
+	`cash` is the signed effect on the till: + money in, - money out.
+	`refs` is the Payment Entry's references (allocated_amount in company currency)."""
+	conditions = ["pe.custom_warehouse = %(warehouse)s"]
+	if accounts:
+		conditions += ["pe.paid_to IN %(accounts)s", "pe.paid_from IN %(accounts)s"]
+
+	rows = frappe.db.sql(
+		f"""
+		SELECT pe.name, pe.payment_type, pe.party_type, pe.party, pe.party_name,
+		       pe.mode_of_payment, pe.reference_no, pe.custom_cheque_bank,
+		       pe.base_paid_amount, pe.base_received_amount
+		FROM `tabPayment Entry` pe
+		WHERE pe.docstatus = 1
+		  AND pe.company = %(company)s
+		  AND pe.posting_date = %(date)s
+		  AND pe.party_type IN ('Customer', 'Supplier')
+		  AND ({" OR ".join(conditions)})
+		ORDER BY pe.creation, pe.name
+		""",
+		{"company": company, "date": report_date, "warehouse": warehouse, "accounts": tuple(accounts or [""])},
+		as_dict=True,
+	)
+	if not rows:
+		return []
+
+	refs = frappe.db.sql(
+		"""
+		SELECT parent, reference_doctype, reference_name, allocated_amount
+		FROM `tabPayment Entry Reference`
+		WHERE parent IN %(names)s
+		ORDER BY idx
+		""",
+		{"names": tuple(row.name for row in rows)},
+		as_dict=True,
+	)
+	refs_by_pe = {}
+	for ref in refs:
+		refs_by_pe.setdefault(ref.parent, []).append(ref)
+
+	for row in rows:
+		row.cash = flt(row.base_received_amount) if row.payment_type == "Receive" else -flt(row.base_paid_amount)
+		row.refs = refs_by_pe.get(row.name, [])
+	return rows
+
+
+def get_journal_party_map(journal_names):
+	"""{journal entry: "Customer: X, Supplier: Y"} -- the parties named on the
+	other rows of each Journal Entry, so a JE payment to/from a customer or
+	supplier shows who it was for."""
+	if not journal_names:
+		return {}
+	rows = frappe.db.sql(
+		"""
+		SELECT DISTINCT parent, party_type, party
+		FROM `tabJournal Entry Account`
+		WHERE parent IN %(names)s AND IFNULL(party, '') != ''
+		""",
+		{"names": tuple(journal_names)},
+		as_dict=True,
+	)
+	parties = {}
+	for row in rows:
+		parties.setdefault(row.parent, []).append(f"{row.party_type}: {row.party}")
+	return {name: ", ".join(values) for name, values in parties.items()}
+
+
+def get_day_summary(company, warehouse, report_date, opening_balance=None):
+	"""One warehouse, one day -- the branch's cash-box handover slip. Shared
+	by this Script Report and POS Awesome's Daily Cash Summary page/PDF
+	(posawesome.posawesome.api.daily_cash_summary_pdf) so both always show
+	the same rows and figures. Amounts are raw floats; callers format them.
+
+	Money received / paid is counted on the Payment Entry's own posting
+	date, so a customer paying an old invoice today shows up today
+	(Customer Payments) and never changes an earlier day's figures.
+
+	opening_balance: pass the previous day's closing balance when walking a
+	date range; when None it is looked up (get_opening_balances)."""
+	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse
+
+	report_date = getdate(report_date)
+	wh_accounts = get_accounts_for_warehouse(warehouse)
+
+	invoices = get_sales_invoices(company, warehouse, report_date, report_date)
+	purchases = get_purchase_invoices(company, warehouse, report_date, report_date)
+	expenses = get_expense_claims(company, warehouse, report_date, report_date)
+	deposits = get_deposits(company, warehouse, report_date, report_date)
+	transfers = get_fund_transfers(company, warehouse, report_date, report_date)
+	payments = get_party_payments(company, warehouse, wh_accounts, report_date)
+	if opening_balance is None:
+		opening_balance = get_opening_balances(company, warehouse, report_date).get(warehouse)
+	opening_balance = flt(opening_balance)
+
+	# get_fund_transfers() also returns manual Journal Entries against the
+	# till's accounts -- shown in their own section.
+	fund_transfers = [row for row in transfers if row.get("source_label") != _("Journal Entry")]
+	journals = [row for row in transfers if row.get("source_label") == _("Journal Entry")]
+
+	# ── Money received / paid today against today's own invoices ─────────
+	sales_names = {inv.name for inv in invoices}
+	purchase_names = {inv.name for inv in purchases}
+	received_today, paid_today = {}, {}
+	for pe in payments:
+		for ref in pe.refs:
+			if pe.party_type == "Customer" and ref.reference_name in sales_names:
+				received_today[ref.reference_name] = received_today.get(ref.reference_name, 0.0) + flt(
+					ref.allocated_amount
+				)
+			elif pe.party_type == "Supplier" and ref.reference_name in purchase_names:
+				paid_today[ref.reference_name] = paid_today.get(ref.reference_name, 0.0) + flt(
+					ref.allocated_amount
+				)
+
+	# ── Sales Collection Summary ──────────────────────────────────────────
+	sales_rows = []
+	sales_total = {"selling": 0.0, "discount": 0.0, "due": 0.0, "received": 0.0}
+	for idx, inv in enumerate(invoices, start=1):
+		selling = flt(inv.grand_total) + flt(inv.discount_amount)
+		discount = flt(inv.discount_amount)
+		received = received_today.get(inv.name, 0.0)
+		due = flt(inv.grand_total) - received
+		sales_total["selling"] += selling
+		sales_total["discount"] += discount
+		sales_total["due"] += due
+		sales_total["received"] += received
+		sales_rows.append(
+			frappe._dict(
+				sl=idx,
+				invoice_no=inv.name,
+				description=_("Return against {0}").format(inv.return_against) if inv.is_return else "",
+				selling=selling,
+				discount=discount,
+				due=due,
+				received=received,
+			)
+		)
+
+	# ── Purchase Summary ──────────────────────────────────────────────────
+	purchase_rows = []
+	purchase_total = {"purchase": 0.0, "discount": 0.0, "due": 0.0, "paid": 0.0}
+	for idx, inv in enumerate(purchases, start=1):
+		amount = flt(inv.grand_total) + flt(inv.discount_amount)
+		discount = flt(inv.discount_amount)
+		paid = paid_today.get(inv.name, 0.0)
+		due = flt(inv.grand_total) - paid
+		purchase_total["purchase"] += amount
+		purchase_total["discount"] += discount
+		purchase_total["due"] += due
+		purchase_total["paid"] += paid
+		purchase_rows.append(
+			frappe._dict(
+				sl=idx,
+				invoice_no=inv.name,
+				supplier=frappe.db.get_value("Purchase Invoice", inv.name, "supplier_name") or "",
+				description=_("Return against {0}").format(inv.return_against) if inv.is_return else "",
+				purchase=amount,
+				discount=discount,
+				due=due,
+				paid=paid,
+			)
+		)
+
+	# ── Customer / Supplier Payments (not for today's own invoices) ───────
+	def payment_rows_for(party_type, own_invoices):
+		rows, total = [], 0.0
+		for pe in payments:
+			if pe.party_type != party_type:
+				continue
+			own = sum(flt(r.allocated_amount) for r in pe.refs if r.reference_name in own_invoices)
+			# Signed from the till's point of view: + in, - out.
+			own_cash = own if party_type == "Customer" else -own
+			amount = flt(pe.cash) - own_cash
+			if abs(amount) < 0.005:
+				continue
+			other_refs = [r.reference_name for r in pe.refs if r.reference_name not in own_invoices]
+			total += amount
+			rows.append(
+				frappe._dict(
+					sl=len(rows) + 1,
+					party=pe.party_name or pe.party,
+					payment_type=_(pe.payment_type),
+					mode_of_payment=pe.mode_of_payment or "",
+					against=", ".join(other_refs) if other_refs else _("Advance / On Account"),
+					reference_no=pe.name,
+					cheque=" ".join(filter(None, [pe.custom_cheque_bank, pe.reference_no]))
+					if pe.custom_cheque_bank
+					else "",
+					amount=amount,
+				)
+			)
+		return rows, total
+
+	customer_payment_rows, customer_payment_total = payment_rows_for("Customer", sales_names)
+	supplier_payment_rows, supplier_payment_total = payment_rows_for("Supplier", purchase_names)
+	# Supplier total as money *out* of the till (positive = paid out).
+	supplier_payment_out = -supplier_payment_total
+
+	# ── Fund Transfer ─────────────────────────────────────────────────────
+	fund_transfer_rows = [
+		frappe._dict(
+			sl=idx,
+			particulars=_("Fund Transfer"),
+			description=row.paid_to or "",
+			reference_no=row.name,
+			amount=flt(row.amount),
+		)
+		for idx, row in enumerate(fund_transfers, start=1)
+	]
+	fund_transfer_total = sum(row.amount for row in fund_transfer_rows)
+
+	# ── Journal Entries against the till's cash account(s) ────────────────
+	journal_parties = get_journal_party_map([row.name for row in journals])
+	journal_rows = [
+		frappe._dict(
+			sl=idx,
+			party=journal_parties.get(row.name, ""),
+			description=row.get("reference_no") or "",
+			reference_no=row.name,
+			direction=_("In") if flt(row.amount) >= 0 else _("Out"),
+			amount=flt(row.amount),
+		)
+		for idx, row in enumerate(journals, start=1)
+	]
+	journal_total = sum(row.amount for row in journal_rows)
+
+	# ── Cash Out Outflow (expense claim lines) ────────────────────────────
+	expense_total = sum(flt(row.grand_total) for row in expenses)
+	expense_claim_names = [row.name for row in expenses]
+	expense_lines = (
+		frappe.get_all(
+			"Expense Claim Detail",
+			filters={"parent": ["in", expense_claim_names]},
+			fields=["parent", "expense_type", "description", "amount", "sanctioned_amount"],
+			order_by="parent, idx",
+		)
+		if expense_claim_names
+		else []
+	)
+	expense_rows = [
+		frappe._dict(
+			sl=idx,
+			cash_out_type=row.expense_type or _("Expense"),
+			description=row.description or "",
+			reference_no=row.parent,
+			amount=flt(row.sanctioned_amount) or flt(row.amount),
+		)
+		for idx, row in enumerate(expense_lines, start=1)
+	]
+
+	# ── BSP Deposit ───────────────────────────────────────────────────────
+	deposit_rows = [
+		frappe._dict(
+			sl=idx,
+			deposit_type=row.deposit_type or _("Deposit"),
+			bank_name=row.bank_name or "",
+			reference_no=row.name,
+			amount=flt(row.amount),
+		)
+		for idx, row in enumerate(deposits, start=1)
+	]
+	deposit_total = sum(row.amount for row in deposit_rows)
+
+	# ── Totals ────────────────────────────────────────────────────────────
+	total_collection = sales_total["received"] + customer_payment_total
+	total_purchase_paid = purchase_total["paid"] + supplier_payment_out
+	income = total_collection + fund_transfer_total + journal_total - expense_total - total_purchase_paid
+	formula_closing_balance = opening_balance + income - deposit_total
+
+	# GL-mapped warehouse: the real ledger balance of its cash account(s) --
+	# the same figure Trial Balance shows. Anything posted to those accounts
+	# that none of the sections above list is Other Ledger Activity instead
+	# of being silently absorbed.
+	closing_balance = (
+		get_gl_balance(wh_accounts, company, report_date) if wh_accounts else formula_closing_balance
+	)
+	other_activity = closing_balance - formula_closing_balance if wh_accounts else 0.0
+	if abs(other_activity) < 0.005:
+		other_activity = 0.0
+
+	has_activity = bool(
+		sales_rows
+		or purchase_rows
+		or customer_payment_rows
+		or supplier_payment_rows
+		or fund_transfer_rows
+		or journal_rows
+		or expense_rows
+		or deposit_rows
+		or other_activity
+	)
+
+	return frappe._dict(
+		warehouse=warehouse,
+		report_date=report_date,
+		has_activity=has_activity,
+		opening_balance=opening_balance,
+		closing_balance=closing_balance,
+		other_activity=other_activity,
+		income=income,
+		total_collection=total_collection,
+		total_purchase_paid=total_purchase_paid,
+		sales_rows=sales_rows,
+		sales_total=sales_total,
+		purchase_rows=purchase_rows,
+		purchase_total=purchase_total,
+		customer_payment_rows=customer_payment_rows,
+		customer_payment_total=customer_payment_total,
+		supplier_payment_rows=supplier_payment_rows,
+		supplier_payment_out=supplier_payment_out,
+		fund_transfer_rows=fund_transfer_rows,
+		fund_transfer_total=fund_transfer_total,
+		journal_rows=journal_rows,
+		journal_total=journal_total,
+		expense_rows=expense_rows,
+		expense_total=expense_total,
+		deposit_rows=deposit_rows,
+		deposit_total=deposit_total,
+	)
+
+
 def _section_title(warehouse, date, title):
 	return {
 		"warehouse": warehouse,
@@ -408,208 +721,286 @@ def _bold_row(warehouse, date, particulars, **amounts):
 	return row
 
 
+def _active_days(company, warehouse, from_date, to_date):
+	"""{warehouse: set(dates)} that have anything to show -- itemised
+	documents, Customer/Supplier Payment Entries, or any ledger posting to the
+	warehouse's own Cash / Bank Accounts (so Other Ledger Activity days
+	aren't skipped either)."""
+	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse
+
+	if warehouse:
+		warehouses = [warehouse]
+	else:
+		warehouses = frappe.get_all("Warehouse", filters={"company": company, "is_group": 0}, pluck="name")
+
+	active = {}
+
+	def mark(wh, date):
+		if wh and (not warehouse or wh == warehouse):
+			active.setdefault(wh, set()).add(getdate(date))
+
+	for fetch in (get_sales_invoices, get_purchase_invoices, get_expense_claims, get_deposits, get_fund_transfers):
+		for row in fetch(company, warehouse, from_date, to_date):
+			mark(row.warehouse, row.posting_date)
+
+	if frappe.get_meta("Payment Entry").has_field("custom_warehouse"):
+		for row in frappe.db.sql(
+			"""
+			SELECT DISTINCT custom_warehouse AS warehouse, posting_date
+			FROM `tabPayment Entry`
+			WHERE docstatus = 1 AND company = %(company)s
+			  AND party_type IN ('Customer', 'Supplier')
+			  AND IFNULL(custom_warehouse, '') != ''
+			  AND posting_date BETWEEN %(from_date)s AND %(to_date)s
+			""",
+			{"company": company, "from_date": from_date, "to_date": to_date},
+			as_dict=True,
+		):
+			mark(row.warehouse, row.posting_date)
+
+	warehouses_by_account = {}
+	for wh in warehouses:
+		for account in get_accounts_for_warehouse(wh):
+			warehouses_by_account.setdefault(account, []).append(wh)
+	if warehouses_by_account:
+		for row in frappe.db.sql(
+			"""
+			SELECT DISTINCT account, posting_date
+			FROM `tabGL Entry`
+			WHERE is_cancelled = 0 AND company = %(company)s
+			  AND account IN %(accounts)s
+			  AND posting_date BETWEEN %(from_date)s AND %(to_date)s
+			""",
+			{
+				"company": company,
+				"accounts": tuple(warehouses_by_account),
+				"from_date": from_date,
+				"to_date": to_date,
+			},
+			as_dict=True,
+		):
+			for wh in warehouses_by_account[row.account]:
+				mark(wh, row.posting_date)
+
+	return active
+
+
+def _day_rows(day):
+	"""Report rows for one warehouse-day (get_day_summary), laid out section
+	by section the same way as POS Awesome's Daily Cash Summary page."""
+	wh, date = day.warehouse, day.report_date
+	rows = [_bold_row(wh, date, _("Opening Balance"), balance_amount=day.opening_balance)]
+
+	def line(**values):
+		rows.append({"warehouse": wh, "date": date, **values})
+
+	def payment_particulars(row):
+		return " · ".join(filter(None, [row.party, row.payment_type, row.mode_of_payment]))
+
+	if day.sales_rows:
+		rows.append(_section_title(wh, date, _("Sales Collection Summary")))
+		for row in day.sales_rows:
+			line(
+				sl=row.sl,
+				particulars=row.invoice_no,
+				description=row.description,
+				selling_amount=row.selling,
+				discount_amount=row.discount,
+				due_amount=row.due,
+				received_amount=row.received,
+			)
+		total = day.sales_total
+		rows.append(
+			_bold_row(
+				wh,
+				date,
+				_("Total Received"),
+				selling_amount=total["selling"],
+				discount_amount=total["discount"],
+				due_amount=total["due"],
+				received_amount=total["received"],
+			)
+		)
+
+	if day.customer_payment_rows:
+		rows.append(_section_title(wh, date, _("Customer Payments")))
+		for row in day.customer_payment_rows:
+			line(
+				sl=row.sl,
+				particulars=payment_particulars(row),
+				description=" ".join(filter(None, [row.against, row.cheque])),
+				reference_no=row.reference_no,
+				received_amount=row.amount,
+			)
+		rows.append(
+			_bold_row(wh, date, _("Total Customer Payments"), received_amount=day.customer_payment_total)
+		)
+
+	if day.purchase_rows:
+		rows.append(_section_title(wh, date, _("Purchase Summary")))
+		for row in day.purchase_rows:
+			line(
+				sl=row.sl,
+				particulars=row.invoice_no,
+				description=" · ".join(filter(None, [row.supplier, row.description])),
+				purchase_amount=row.purchase,
+				discount_amount=row.discount,
+				due_amount=row.due,
+				paid_amount=row.paid,
+			)
+		total = day.purchase_total
+		rows.append(
+			_bold_row(
+				wh,
+				date,
+				_("Total Paid"),
+				purchase_amount=total["purchase"],
+				discount_amount=total["discount"],
+				due_amount=total["due"],
+				paid_amount=total["paid"],
+			)
+		)
+
+	if day.supplier_payment_rows:
+		rows.append(_section_title(wh, date, _("Supplier Payments")))
+		for row in day.supplier_payment_rows:
+			line(
+				sl=row.sl,
+				particulars=payment_particulars(row),
+				description=" ".join(filter(None, [row.against, row.cheque])),
+				reference_no=row.reference_no,
+				# Money out of the till, shown positive.
+				paid_amount=-row.amount,
+			)
+		rows.append(_bold_row(wh, date, _("Total Supplier Payments"), paid_amount=day.supplier_payment_out))
+
+	if day.fund_transfer_rows:
+		rows.append(_section_title(wh, date, _("Fund Transfer")))
+		for row in day.fund_transfer_rows:
+			line(
+				sl=row.sl,
+				particulars=row.particulars,
+				description=row.description,
+				reference_no=row.reference_no,
+				fund_transfer_amount=row.amount,
+			)
+		rows.append(
+			_bold_row(wh, date, _("Total Fund Transfer"), fund_transfer_amount=day.fund_transfer_total)
+		)
+
+	if day.journal_rows:
+		rows.append(_section_title(wh, date, _("Journal Entries")))
+		for row in day.journal_rows:
+			line(
+				sl=row.sl,
+				particulars=row.party or _("Journal Entry"),
+				description=" · ".join(filter(None, [row.direction, row.description])),
+				reference_no=row.reference_no,
+				journal_amount=row.amount,
+			)
+		rows.append(_bold_row(wh, date, _("Total Journal Entries"), journal_amount=day.journal_total))
+
+	if day.expense_rows:
+		rows.append(_section_title(wh, date, _("Cash Out Outflow")))
+		for row in day.expense_rows:
+			line(
+				sl=row.sl,
+				particulars=row.cash_out_type,
+				description=row.description,
+				reference_no=row.reference_no,
+				expense_amount=row.amount,
+			)
+		rows.append(_bold_row(wh, date, _("Total Expense"), expense_amount=day.expense_total))
+
+	rows.append(_section_title(wh, date, _("BSP Deposit")))
+	for row in day.deposit_rows:
+		line(
+			sl=row.sl,
+			particulars=row.deposit_type,
+			description=row.bank_name,
+			reference_no=row.reference_no,
+			deposit_amount=row.amount,
+		)
+	if day.deposit_rows:
+		rows.append(_bold_row(wh, date, _("Total Deposited"), deposit_amount=day.deposit_total))
+
+	rows.append(_section_title(wh, date, _("Summary")))
+	rows.append(_bold_row(wh, date, _("Total Collection"), received_amount=day.total_collection))
+	rows.append(_bold_row(wh, date, _("Total Purchase Paid"), paid_amount=day.total_purchase_paid))
+	rows.append(
+		_bold_row(
+			wh,
+			date,
+			_("Expected Deposit (Collection + Fund Transfer + Journal - Expense - Purchase Paid)"),
+			deposit_amount=day.income,
+		)
+	)
+	if day.other_activity:
+		rows.append(
+			_bold_row(
+				wh,
+				date,
+				_("Other Ledger Activity (not itemised above)"),
+				balance_amount=day.other_activity,
+			)
+		)
+	rows.append(_bold_row(wh, date, _("Closing Balance"), balance_amount=day.closing_balance))
+	return rows
+
+
+def _report_summary(days_by_warehouse):
+	"""Header cards, same as POS Awesome's Daily Cash Summary page: totals over
+	the period, with Opening/Closing Balance taken from each warehouse's first
+	and last day and summed across warehouses."""
+	days = [day for wh_days in days_by_warehouse.values() for day in wh_days]
+	if not days:
+		return None
+
+	def total(field):
+		return sum(flt(day[field]) for day in days)
+
+	cards = [
+		(_("Opening Balance"), sum(wh_days[0].opening_balance for wh_days in days_by_warehouse.values()), "Blue"),
+		(_("Total Collection"), total("total_collection"), "Green"),
+		(_("Fund Transfer"), total("fund_transfer_total"), "Green"),
+		(_("Journal Entries"), total("journal_total"), "Purple"),
+		(_("Purchase Paid"), total("total_purchase_paid"), "Red"),
+		(_("Total Expense"), total("expense_total"), "Red"),
+		(_("Total Deposited"), total("deposit_total"), "Purple"),
+		(_("Closing Balance"), sum(wh_days[-1].closing_balance for wh_days in days_by_warehouse.values()), "Blue"),
+	]
+	return [
+		{"label": label, "value": value, "datatype": "Currency", "indicator": indicator}
+		for label, value, indicator in cards
+	]
+
+
 def get_data(filters, from_date, to_date):
+	"""Every warehouse-day with activity, each built by get_day_summary() --
+	the same function POS Awesome's Daily Cash Summary page and PDF use --
+	so this report shows exactly the same rows and figures."""
 	company = filters.company
 	warehouse = filters.get("warehouse")
 
-	groups = {}
-
-	def ensure_group(key):
-		return groups.setdefault(
-			key,
-			{"sales": [], "purchases": [], "expenses": [], "deposits": [], "fund_transfers": []},
-		)
-
-	for inv in get_sales_invoices(company, warehouse, from_date, to_date):
-		ensure_group((inv.warehouse, inv.posting_date))["sales"].append(inv)
-
-	for inv in get_purchase_invoices(company, warehouse, from_date, to_date):
-		ensure_group((inv.warehouse, inv.posting_date))["purchases"].append(inv)
-
-	for row in get_expense_claims(company, warehouse, from_date, to_date):
-		ensure_group((row.warehouse, row.posting_date))["expenses"].append(row)
-
-	for row in get_deposits(company, warehouse, from_date, to_date):
-		ensure_group((row.warehouse, row.posting_date))["deposits"].append(row)
-
-	for row in get_fund_transfers(company, warehouse, from_date, to_date):
-		ensure_group((row.warehouse, row.posting_date))["fund_transfers"].append(row)
-
-	if not groups:
-		return []
+	active = _active_days(company, warehouse, from_date, to_date)
+	if not active:
+		return [], None
 
 	# Warehouse blocks follow BSP's official warehouse order (Warehouse Sort Order).
 	from bsp_engineering.utils.warehouse_sort import sort_warehouses
 
-	warehouses = sort_warehouses({wh for wh, _d in groups.keys()})
-	opening_balances = get_opening_balances(company, warehouse, from_date)
-
-	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse
-
-	accounts_by_wh = {wh: get_accounts_for_warehouse(wh) for wh in warehouses}
-
 	data = []
-	for wh in warehouses:
-		wh_accounts = accounts_by_wh[wh]
-		running_balance = flt(opening_balances.get(wh))
-		current_date = from_date
-		while current_date <= to_date:
-			key = (wh, current_date)
-			if key not in groups:
-				current_date = add_days(current_date, 1)
+	days_by_warehouse = {}
+	for wh in sort_warehouses(set(active)):
+		# Each day opens with the previous day's closing balance (for a
+		# GL-mapped warehouse that's its ledger balance either way).
+		running_balance = None
+		for date in sorted(active[wh]):
+			day = get_day_summary(company, wh, date, opening_balance=running_balance)
+			running_balance = day.closing_balance
+			if not day.has_activity:
 				continue
+			days_by_warehouse.setdefault(wh, []).append(day)
+			data.extend(_day_rows(day))
 
-			group = groups[key]
-			opening_balance = running_balance
-
-			data.append(_bold_row(wh, current_date, _("Opening Balance"), balance_amount=opening_balance))
-
-			sales_total = {"selling_amount": 0.0, "discount_amount": 0.0, "due_amount": 0.0, "received_amount": 0.0}
-			if group["sales"]:
-				data.append(_section_title(wh, current_date, _("Sales Collection Summary")))
-				for idx, inv in enumerate(group["sales"], start=1):
-					selling = flt(inv.grand_total) + flt(inv.discount_amount)
-					discount = flt(inv.discount_amount)
-					due = flt(inv.outstanding_amount)
-					received = flt(inv.grand_total) - flt(inv.outstanding_amount)
-					sales_total["selling_amount"] += selling
-					sales_total["discount_amount"] += discount
-					sales_total["due_amount"] += due
-					sales_total["received_amount"] += received
-					data.append({
-						"warehouse": wh,
-						"date": current_date,
-						"sl": idx,
-						"particulars": inv.name,
-						"description": _("Return against {0}").format(inv.return_against) if inv.is_return else "",
-						"selling_amount": selling,
-						"discount_amount": discount,
-						"due_amount": due,
-						"received_amount": received,
-					})
-				data.append(_bold_row(wh, current_date, _("Total"), **sales_total))
-
-			purchase_total = {"purchase_amount": 0.0, "discount_amount": 0.0, "due_amount": 0.0, "paid_amount": 0.0}
-			if group["purchases"]:
-				data.append(_section_title(wh, current_date, _("Purchase Summary")))
-				for idx, inv in enumerate(group["purchases"], start=1):
-					purchase_amount = flt(inv.grand_total) + flt(inv.discount_amount)
-					discount = flt(inv.discount_amount)
-					due = flt(inv.outstanding_amount)
-					paid = flt(inv.grand_total) - flt(inv.outstanding_amount)
-					purchase_total["purchase_amount"] += purchase_amount
-					purchase_total["discount_amount"] += discount
-					purchase_total["due_amount"] += due
-					purchase_total["paid_amount"] += paid
-					data.append({
-						"warehouse": wh,
-						"date": current_date,
-						"sl": idx,
-						"particulars": inv.name,
-						"description": _("Return against {0}").format(inv.return_against) if inv.is_return else "",
-						"purchase_amount": purchase_amount,
-						"discount_amount": discount,
-						"due_amount": due,
-						"paid_amount": paid,
-					})
-				data.append(_bold_row(wh, current_date, _("Total"), **purchase_total))
-
-			fund_transfer_total = 0.0
-			if group["fund_transfers"]:
-				data.append(_section_title(wh, current_date, _("Fund Transfer")))
-				for idx, row in enumerate(group["fund_transfers"], start=1):
-					amount = flt(row.amount)
-					fund_transfer_total += amount
-					data.append({
-						"warehouse": wh,
-						"date": current_date,
-						"sl": idx,
-						"particulars": row.get("source_label") or _("Fund Transfer"),
-						"description": row.paid_to or "",
-						"reference_no": row.name,
-						"fund_transfer_amount": amount,
-					})
-				data.append(
-					_bold_row(
-						wh,
-						current_date,
-						_("Total Fund Transfer"),
-						fund_transfer_amount=fund_transfer_total,
-					)
-				)
-
-			expense_total = 0.0
-			if group["expenses"]:
-				data.append(_section_title(wh, current_date, _("Cash Out Outflow")))
-				for idx, row in enumerate(group["expenses"], start=1):
-					amount = flt(row.grand_total)
-					expense_total += amount
-					data.append({
-						"warehouse": wh,
-						"date": current_date,
-						"sl": idx,
-						"particulars": _("Expense"),
-						"description": row.remark or "",
-						"reference_no": row.name,
-						"expense_amount": amount,
-					})
-				data.append(_bold_row(wh, current_date, _("Total Expense"), expense_amount=expense_total))
-
-			income = (
-				sales_total["received_amount"]
-				+ fund_transfer_total
-				- expense_total
-				- purchase_total["paid_amount"]
-			)
-			deposit_total = 0.0
-			data.append(_section_title(wh, current_date, _("BSP Deposit")))
-			if group["deposits"]:
-				for idx, row in enumerate(group["deposits"], start=1):
-					amount = flt(row.amount)
-					deposit_total += amount
-					data.append({
-						"warehouse": wh,
-						"date": current_date,
-						"sl": idx,
-						"particulars": row.deposit_type or _("Deposit"),
-						"description": row.bank_name or "",
-						"reference_no": row.name,
-						"deposit_amount": amount,
-					})
-				data.append(_bold_row(wh, current_date, _("Total Deposited"), deposit_amount=deposit_total))
-			data.append(_bold_row(
-				wh,
-				current_date,
-				_("Expected Deposit (Collection + Fund Transfer - Expense - Purchase Paid)"),
-				deposit_amount=income,
-			))
-
-			if wh_accounts:
-				# GL-mapped warehouse: Closing Balance is the *real* ledger
-				# balance for this warehouse's Cash / Bank Accounts as of
-				# today (get_gl_balance) -- the same figure Trial Balance
-				# would show -- not the arithmetic derivation below, which is
-				# blind to anything posted to the account outside the
-				# Sales/Purchase/Expense/Deposit/Fund Transfer types this
-				# report tracks. The gap between the two (if any) is real
-				# ledger activity this report doesn't itemise -- surfaced
-				# explicitly rather than silently absorbed into the balance.
-				closing_balance = get_gl_balance(wh_accounts, company, current_date)
-				other_activity = closing_balance - opening_balance - income + deposit_total
-				if other_activity:
-					data.append(
-						_bold_row(
-							wh,
-							current_date,
-							_("Other Ledger Activity (not itemised above)"),
-							balance_amount=other_activity,
-						)
-					)
-			else:
-				closing_balance = opening_balance + income - deposit_total
-			data.append(_bold_row(wh, current_date, _("Closing Balance"), balance_amount=closing_balance))
-
-			running_balance = closing_balance
-			current_date = add_days(current_date, 1)
-
-	return data
+	return data, _report_summary(days_by_warehouse)
