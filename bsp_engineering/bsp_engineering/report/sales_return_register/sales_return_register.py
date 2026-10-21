@@ -224,6 +224,21 @@ def _build_conditions(filters):
     if filters.get("item_code"):
         parts.append("AND sii.item_code = %(item_code)s")
 
+    # A warehouse/territory-restricted user sees only their own warehouses'
+    # returns. A return often leaves set_warehouse blank, so the original
+    # invoice's warehouse (return_against) counts too.
+    from bsp_engineering.utils.report_permissions import get_report_permitted_warehouses
+
+    permitted = get_report_permitted_warehouses()
+    if permitted is not None:
+        filters["bsp_permitted_warehouses"] = tuple(permitted) or ("",)
+        parts.append(
+            "AND (sii.warehouse IN %(bsp_permitted_warehouses)s"
+            " OR si.set_warehouse IN %(bsp_permitted_warehouses)s"
+            " OR si.return_against IN (SELECT name FROM `tabSales Invoice`"
+            " WHERE set_warehouse IN %(bsp_permitted_warehouses)s))"
+        )
+
     return " ".join(parts)
 
 

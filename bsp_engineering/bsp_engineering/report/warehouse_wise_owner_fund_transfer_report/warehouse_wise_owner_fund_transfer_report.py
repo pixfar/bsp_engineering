@@ -172,11 +172,25 @@ def get_data(filters, from_date, to_date):
 	account = filters.get("cash_in_hand_account")
 	warehouse = filters.get("warehouse")
 
+	from bsp_engineering.utils.report_permissions import (
+		check_warehouse_filter,
+		get_report_permitted_warehouses,
+	)
+
+	check_warehouse_filter(warehouse)
 	rows = get_fund_transfers(company, account, from_date, to_date, warehouse=warehouse)
 	if not rows:
 		return []
 
 	account_to_warehouse = _get_account_warehouse_map(company)
+	# A warehouse/territory-restricted user sees only their own warehouses' rows.
+	permitted = get_report_permitted_warehouses()
+	if permitted is not None:
+		rows = [
+			r for r in rows if (r.get("warehouse") or account_to_warehouse.get(r.paid_to)) in permitted
+		]
+		if not rows:
+			return []
 
 	full_names = {
 		u.name: u.full_name

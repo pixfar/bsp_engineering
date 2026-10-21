@@ -15,6 +15,11 @@ from bsp_engineering.bsp_engineering.utils.production_requirement import (
 
 def execute(filters=None):
 	rows = get_requirement_item_rows(filters)
+	# A warehouse/territory-restricted user sees only their own warehouses
+	# (rows and summary).
+	from bsp_engineering.utils.report_permissions import filter_permitted_warehouses
+
+	rows = filter_permitted_warehouses(rows, key="warehouse")
 	return get_columns(), rows, None, None, get_report_summary(rows)
 
 

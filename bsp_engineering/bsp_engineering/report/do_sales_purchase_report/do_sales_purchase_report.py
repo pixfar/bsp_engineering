@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, item_category_sort_key
+from bsp_engineering.utils.report_permissions import get_report_permitted_warehouses
 
 
 NOT_RECEIVED = "Not Received"
@@ -175,6 +176,12 @@ def _build_conditions(filters, item_alias="item"):
 	if filters.get("item_code"):
 		conditions.append(f"{item_alias}.item_code = %(item_code)s")
 		values["item_code"] = filters.item_code
+	# A warehouse/territory-restricted user sees only their own warehouses'
+	# invoice lines.
+	permitted = get_report_permitted_warehouses()
+	if permitted is not None:
+		conditions.append(f"{item_alias}.warehouse in %(bsp_permitted_warehouses)s")
+		values["bsp_permitted_warehouses"] = tuple(permitted) or ("",)
 	return " AND ".join(conditions), values
 
 
@@ -208,6 +215,15 @@ def _build_transfer_conditions(filters, item_alias="item"):
 	if filters.get("item_code"):
 		conditions.append(f"{item_alias}.item_code = %(item_code)s")
 		values["item_code"] = filters.item_code
+	# A warehouse/territory-restricted user sees only transfers out of or
+	# into their own warehouses.
+	permitted = get_report_permitted_warehouses()
+	if permitted is not None:
+		conditions.append(
+			"(main.from_warehouse in %(bsp_permitted_warehouses)s"
+			" or main.to_warehouse in %(bsp_permitted_warehouses)s)"
+		)
+		values["bsp_permitted_warehouses"] = tuple(permitted) or ("",)
 	return " AND ".join(conditions), values
 
 

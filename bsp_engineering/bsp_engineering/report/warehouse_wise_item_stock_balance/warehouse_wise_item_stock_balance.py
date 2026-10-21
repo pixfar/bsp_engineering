@@ -8,6 +8,7 @@ from frappe.utils import flt, getdate, nowdate
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
 from bsp_engineering.utils.warehouse_sort import sort_warehouses
+from bsp_engineering.utils.report_permissions import filter_permitted_warehouses
 
 
 def execute(filters=None):
@@ -32,6 +33,9 @@ def get_warehouses(filters):
 	)
 	# Columns follow BSP's official warehouse order (Warehouse Sort Order).
 	warehouses = sort_warehouses(warehouses, key="name")
+	# A warehouse/territory-restricted user gets only their own columns (and
+	# Grand Total from those alone).
+	warehouses = filter_permitted_warehouses(warehouses, key="name")
 
 	for idx, warehouse in enumerate(warehouses):
 		warehouse["fieldname"] = f"warehouse_{idx}"

@@ -443,12 +443,13 @@ override_doctype_dashboards = {
 
 # Request Events
 # ----------------
-# before_request = ["bsp_engineering.utils.before_request"]
+# Stock Balance in BSP item-category order (see overrides/stock_balance.py).
+before_request = ["bsp_engineering.overrides.stock_balance.install"]
 # after_request = ["bsp_engineering.utils.after_request"]
 
 # Job Events
 # ----------
-# before_job = ["bsp_engineering.utils.before_job"]
+before_job = ["bsp_engineering.overrides.stock_balance.install"]
 # after_job = ["bsp_engineering.utils.after_job"]
 
 # User Data Protection

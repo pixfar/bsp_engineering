@@ -17,6 +17,9 @@ def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	to_date = filters.to_date
 	filters.show_warehouse_wise_stock = 1
+	from bsp_engineering.utils.report_permissions import check_warehouse_filter
+
+	check_warehouse_filter(filters.get('warehouse'))
 
 	columns = get_columns()
 	data = get_data(filters, to_date)
@@ -85,6 +88,11 @@ def get_data(filters, to_date):
 			'item_group': details.item_group,
 			'total_days': get_average_age(fifo_queue, to_date),
 		})
+
+	# A warehouse/territory-restricted user sees only their own warehouses.
+	from bsp_engineering.utils.report_permissions import filter_permitted_warehouses
+
+	rows = filter_permitted_warehouses(rows, key='warehouse')
 
 	# Warehouse stays the primary grouping; items within a warehouse follow
 	# BSP's official item-category order (see item_category_sort.py) instead

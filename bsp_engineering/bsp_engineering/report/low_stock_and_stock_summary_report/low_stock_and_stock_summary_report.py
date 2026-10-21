@@ -29,6 +29,7 @@ from frappe.utils import flt
 
 from bsp_engineering.utils.item_category_sort import get_item_sort_map, sort_rows_by_item_category
 from bsp_engineering.utils.warehouse_sort import sort_warehouses
+from bsp_engineering.utils.report_permissions import filter_permitted_warehouses
 
 
 def execute(filters=None):
@@ -64,8 +65,9 @@ def get_warehouses(filters):
 		if selected:
 			query = query.where(wh_dt.name.isin(selected))
 
-	# Columns follow BSP's official warehouse order (Warehouse Sort Order).
-	return sort_warehouses(query.run(as_dict=True), key="name")
+	# Columns follow BSP's official warehouse order (Warehouse Sort Order);
+	# a warehouse/territory-restricted user gets only their own columns.
+	return filter_permitted_warehouses(sort_warehouses(query.run(as_dict=True), key="name"), key="name")
 
 
 def get_columns(warehouses):
@@ -155,6 +157,9 @@ def get_items(filters, warehouse_names):
 
 def get_data(filters, warehouses):
 	warehouse_names = [wh.name for wh in warehouses]
+	if not warehouse_names:
+		# e.g. a restricted user none of whose warehouses are shown here.
+		return []
 	items = get_items(filters, warehouse_names)
 	if not items:
 		return []

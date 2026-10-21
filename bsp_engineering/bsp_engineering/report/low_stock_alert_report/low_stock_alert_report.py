@@ -107,6 +107,19 @@ def get_data(filters):
 	if filters.get("warehouse"):
 		query = query.where(alert_dt.warehouse == filters.warehouse)
 
+	# A warehouse/territory-restricted user sees only their own warehouses.
+	from bsp_engineering.utils.report_permissions import (
+		check_warehouse_filter,
+		get_report_permitted_warehouses,
+	)
+
+	check_warehouse_filter(filters.get("warehouse"))
+	permitted = get_report_permitted_warehouses()
+	if permitted is not None:
+		if not permitted:
+			return []
+		query = query.where(alert_dt.warehouse.isin(list(permitted)))
+
 	if filters.get("item_group"):
 		query = query.where(item_dt.item_group == filters.item_group)
 

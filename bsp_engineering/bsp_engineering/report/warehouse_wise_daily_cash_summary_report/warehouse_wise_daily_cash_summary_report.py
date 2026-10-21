@@ -111,8 +111,14 @@ def _empty_bucket():
 
 
 def get_data(filters, from_date, to_date):
+	from bsp_engineering.utils.report_permissions import (
+		check_warehouse_filter,
+		filter_permitted_warehouses,
+	)
+
 	company = filters.company
 	warehouse = filters.get("warehouse")
+	check_warehouse_filter(warehouse)
 	(
 		get_sales_invoices,
 		get_purchase_invoices,
@@ -157,6 +163,9 @@ def get_data(filters, from_date, to_date):
 	for row in deposits:
 		bucket(row.warehouse)["bank_deposit"] += flt(row.amount)
 
+	# A warehouse/territory-restricted user sees only their own rows (and a
+	# Total of those alone).
+	warehouses = set(filter_permitted_warehouses(list(warehouses)))
 	if not warehouses:
 		return []
 

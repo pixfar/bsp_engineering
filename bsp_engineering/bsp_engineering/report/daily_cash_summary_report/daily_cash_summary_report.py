@@ -979,10 +979,20 @@ def get_data(filters, from_date, to_date):
 	"""Every warehouse-day with activity, each built by get_day_summary() --
 	the same function POS Awesome's Daily Cash Summary page and PDF use --
 	so this report shows exactly the same rows and figures."""
+	from bsp_engineering.utils.report_permissions import (
+		check_warehouse_filter,
+		filter_permitted_warehouses,
+	)
+
 	company = filters.company
 	warehouse = filters.get("warehouse")
+	check_warehouse_filter(warehouse)
 
 	active = _active_days(company, warehouse, from_date, to_date)
+	# A warehouse/territory-restricted user sees only their own warehouses
+	# (rows and summary cards).
+	permitted = set(filter_permitted_warehouses(list(active)))
+	active = {wh: days for wh, days in active.items() if wh in permitted}
 	if not active:
 		return [], None
 

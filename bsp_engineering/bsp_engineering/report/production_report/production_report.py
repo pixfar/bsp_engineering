@@ -27,6 +27,11 @@ def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	group_by = filters.group_by if filters.group_by in GROUP_BY_FIELDS else "Item"
 	rows = get_requirement_item_rows(filters)
+	# A warehouse/territory-restricted user sees only their own warehouses
+	# (rows and summary).
+	from bsp_engineering.utils.report_permissions import filter_permitted_warehouses
+
+	rows = filter_permitted_warehouses(rows, key="warehouse")
 	data = summarise(rows, group_by)
 	return get_columns(group_by), data, None, None, get_report_summary(rows)
 
