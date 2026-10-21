@@ -157,6 +157,7 @@ def get_items(
 	include_description=False,
 	include_image=False,
 	item_groups=None,
+	sort_by=None,
 ):
 	from posawesome.posawesome.api.item_processing.search import (
 		get_items as _get_items,
@@ -183,6 +184,11 @@ def get_items(
 		include_description=include_description,
 		include_image=include_image,
 		item_groups=item_groups,
+		# Must be passed through: Frappe drops arguments a whitelisted method
+		# doesn't declare, and without it the catalogue came back in item_name
+		# order -- the wrong first page, and a start_after (item_code) cursor
+		# compared against item names.
+		sort_by=sort_by,
 	)
 
 
@@ -248,6 +254,7 @@ def get_delta_items(
 	price_list=None,
 	customer=None,
 	limit=500,
+	warehouse=None,
 ):
 	from posawesome.posawesome.api.items import get_delta_items as _get_delta_items
 
@@ -256,14 +263,18 @@ def get_delta_items(
 	prepared_profile, _target = prepare_pos_profile_for_stock(
 		pos_profile,
 		company=company,
+		warehouse=warehouse,
 	)
 
+	# warehouse passed through too (same reason as sort_by in get_items): the
+	# client's active warehouse, so the delta's stock matches the catalogue.
 	return _get_delta_items(
 		prepared_profile,
 		modified_after=modified_after,
 		price_list=price_list,
 		customer=customer,
 		limit=limit,
+		warehouse=warehouse,
 	)
 
 
