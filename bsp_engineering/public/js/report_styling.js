@@ -104,6 +104,13 @@ const BSP_REPORT_PRINT_CSS = `
 		vertical-align: middle;
 		border-color: #c8d2de !important;
 	}
+	/* Dates on one line in every report PDF/print (see the print_grid patch). */
+	.bsp-report-print table.table-bordered > tbody > tr > td[data-bsp-fieldtype="Date"],
+	.bsp-report-print table.table-bordered > tbody > tr > td[data-bsp-fieldtype="Datetime"],
+	.bsp-report-print table.table-bordered > tbody > tr > td[data-bsp-field$="date"],
+	.bsp-report-print table.table-bordered > tbody > tr > td[data-bsp-field="date"] {
+		white-space: nowrap;
+	}
 	.bsp-report-print table.table-bordered > tbody > tr:nth-child(even) > td {
 		background-color: #f4f7fb;
 	}
@@ -209,6 +216,12 @@ bsp_engineering.report_print.header = function (ctx) {
 		patched = patched.replace(
 			'<tr style="height: 30px">',
 			'<tr style="height: 30px" {% if (row.is_total_row) { %} class="bsp-total-row" {% } %}>'
+		);
+		// Tag each body cell with its column's fieldtype / fieldname so the CSS
+		// below can keep dates on one line ("28-08-2026", not "28-08-" / "2026").
+		patched = patched.replace(
+			'<td {% if row.bold == 1 %} style="font-weight: bold" {% endif %} {% if longest_word',
+			'<td data-bsp-fieldtype="{{ col.fieldtype || \'\' }}" data-bsp-field="{{ (col.fieldname || \'\').toLowerCase() }}" {% if row.bold == 1 %} style="font-weight: bold" {% endif %} {% if longest_word'
 		);
 		templates.print_grid = patched;
 	}
