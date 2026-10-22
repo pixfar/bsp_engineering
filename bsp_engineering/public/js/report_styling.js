@@ -79,7 +79,7 @@ const BSP_REPORT_PRINT_CSS = `
 		background-color: #e6ecf3;
 		color: #4a5b70;
 		font-weight: bold;
-		text-transform: uppercase;
+		text-transform: none;
 	}
 	.bsp-report-filters td.bsp-filter-value {
 		color: #1b2733;

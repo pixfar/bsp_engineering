@@ -631,7 +631,7 @@
 		background-color: #e6ecf3;
 		color: #4a5b70;
 		font-weight: bold;
-		text-transform: uppercase;
+		text-transform: none;
 	}
 	.bsp-report-filters td.bsp-filter-value {
 		color: #1b2733;
@@ -742,4 +742,4 @@
     delete frappe.template.compiled.print_grid;
   })();
 })();
-//# sourceMappingURL=bsp_engineering.bundle.FWUYRWUG.js.map
+//# sourceMappingURL=bsp_engineering.bundle.EKSBKRUL.js.map

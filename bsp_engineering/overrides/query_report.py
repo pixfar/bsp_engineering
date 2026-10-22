@@ -243,7 +243,8 @@ def style_report_xlsx(
         row = banner_rows + 1 + offset
         for i, (label, value) in enumerate(pairs):
             first = i * block + 1
-            label_cell = ws.cell(row=row, column=first, value=label.upper())
+            # Title Case for filter labels (e.g. Total Purchase), not ALL CAPS
+            label_cell = ws.cell(row=row, column=first, value=label)
             label_cell.font = Font(name="Calibri", size=9, bold=True, color="4A5B70")
             label_cell.fill = label_fill
             label_cell.border = grid
