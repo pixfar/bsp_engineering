@@ -28,35 +28,39 @@ def history_list(filters=None):
 	columns = [
 		{'label': _('Date'), 'fieldname': 'date', 'fieldtype': 'Date', 'width': 100},
 		{'label': _('Do Number'), 'fieldname': 'do_number', 'fieldtype': 'Data', 'width': 140},
-		{'label': _('Do Amount'), 'fieldname': 'do_amount', 'fieldtype': 'Currency', 'width': 120},
 		{'label': _('Item Code'), 'fieldname': 'item_code', 'fieldtype': 'Link', 'options': 'Item', 'width': 120},
 		{'label': _('Item Name'), 'fieldname': 'item_name', 'fieldtype': 'Data', 'width': 180},
 		{'label': _('Item Quantity'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 110},
 		{'label': _('MRP'), 'fieldname': 'mrp', 'fieldtype': 'Currency', 'width': 100},
 		{'label': _('Discount'), 'fieldname': 'discount', 'fieldtype': 'Currency', 'width': 100},
-		{'label': _('Dealer Price'), 'fieldname': 'dealer_price', 'fieldtype': 'Currency', 'width': 120},
 		{'label': _('Sales Price'), 'fieldname': 'sales_price', 'fieldtype': 'Currency', 'width': 120},
 	]
 	sales = _sales_rows(filters)
 	purchases = _purchase_rates(filters)
-	do_amounts = _do_amounts(filters)
 
 	data = []
 	for row in sales:
-		key = (row.do_number, row.item_code)
-		purchase = purchases.get(key) or {}
+		# Dealer rate kept for Loss/Profit on the summary report only.
+		purchase = {}
+		if row.do_number:
+			purchase = purchases.get((row.do_number, row.item_code)) or {}
+		if not purchase:
+			purchase = purchases.get(row.item_code) or {}
+		# Invoice `rate` is the list/MRP figure for these lines; `price_list_rate`
+		# is the net sales price. Show them so MRP - Discount = Sales Price.
+		mrp = flt(row.rate)
+		sales_price = flt(row.price_list_rate)
 		data.append(
 			{
 				'date': row.posting_date,
-				'do_number': row.do_number,
-				'do_amount': flt(do_amounts.get(row.do_number)),
+				'do_number': row.do_number or '',
 				'item_code': row.item_code,
 				'item_name': row.item_name,
 				'quantity': flt(row.qty),
-				'mrp': flt(row.price_list_rate),
-				'discount': flt(row.discount_amount),
+				'mrp': mrp,
+				'discount': mrp - sales_price,
 				'dealer_price': flt(purchase.get('rate')),
-				'sales_price': flt(row.rate),
+				'sales_price': sales_price,
 			}
 		)
 	data.sort(key=lambda entry: (entry['date'] or '', entry['do_number'] or '', entry['item_code'] or ''))
@@ -66,17 +70,14 @@ def history_list(filters=None):
 def summary_report(filters=None):
 	filters = frappe._dict(filters or {})
 	columns = [
-		{'label': _('Do Amount'), 'fieldname': 'do_amount', 'fieldtype': 'Currency', 'width': 120},
 		{'label': _('Item Code'), 'fieldname': 'item_code', 'fieldtype': 'Link', 'options': 'Item', 'width': 120},
 		{'label': _('Item Name'), 'fieldname': 'item_name', 'fieldtype': 'Data', 'width': 180},
 		{'label': _('Item Quantity'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 110},
-		{'label': _('Dealer Price'), 'fieldname': 'dealer_price', 'fieldtype': 'Currency', 'width': 120},
 		{'label': _('Sales Price'), 'fieldname': 'sales_price', 'fieldtype': 'Currency', 'width': 120},
 		{'label': _('Loss/Profit'), 'fieldname': 'loss_profit', 'fieldtype': 'Currency', 'width': 120},
 	]
 	_columns, history = history_list(filters)
 	by_item = {}
-	do_by_item = defaultdict(set)
 	for row in history:
 		entry = by_item.setdefault(
 			row['item_code'],
@@ -92,22 +93,16 @@ def summary_report(filters=None):
 		entry['quantity'] += qty
 		entry['dealer_amount'] += flt(row['dealer_price']) * qty
 		entry['sales_amount'] += flt(row['sales_price']) * qty
-		if row.get('do_number'):
-			do_by_item[row['item_code']].add((row['do_number'], flt(row['do_amount'])))
 
 	data = []
 	for entry in by_item.values():
 		qty = flt(entry['quantity'])
-		dealer_price = flt(entry['dealer_amount'] / qty) if qty else 0.0
 		sales_price = flt(entry['sales_amount'] / qty) if qty else 0.0
-		do_amount = sum(amount for do_number, amount in do_by_item.get(entry['item_code'], ()))
 		data.append(
 			{
-				'do_amount': do_amount,
 				'item_code': entry['item_code'],
 				'item_name': entry['item_name'],
 				'quantity': qty,
-				'dealer_price': dealer_price,
 				'sales_price': sales_price,
 				'loss_profit': flt(entry['sales_amount']) - flt(entry['dealer_amount']),
 			}
@@ -142,11 +137,12 @@ def _common_values(filters):
 
 
 def _sales_rows(filters):
+	"""Sales of the three N.Poly / RFL item groups. DO Number is optional —
+	Sales Register data for these groups rarely carries custom_do_number."""
 	values = _common_values(filters)
 	conditions = [
 		'si.docstatus = 1',
 		'si.is_return = 0',
-		"IFNULL(si.custom_do_number, '') != ''",
 		'si.posting_date BETWEEN %(from_date)s AND %(to_date)s',
 		'sii.item_group IN %(item_groups)s',
 	]
@@ -175,11 +171,11 @@ def _sales_rows(filters):
 
 
 def _purchase_rates(filters):
+	"""Dealer rates keyed by (do_number, item) and by item alone (fallback)."""
 	values = _common_values(filters)
 	conditions = [
 		'pi.docstatus = 1',
 		'pi.is_return = 0',
-		"IFNULL(pi.custom_do_number, '') != ''",
 		'pi.posting_date BETWEEN %(from_date)s AND %(to_date)s',
 		'pii.item_group IN %(item_groups)s',
 	]
@@ -205,33 +201,16 @@ def _purchase_rates(filters):
 		as_dict=True,
 	)
 	rates = {}
+	by_item = defaultdict(lambda: {'amount': 0.0, 'qty': 0.0})
 	for row in rows:
 		qty = flt(row.qty)
-		rates[(row.do_number, row.item_code)] = {'rate': flt(row.amount) / qty if qty else 0.0}
+		rate = flt(row.amount) / qty if qty else 0.0
+		if row.do_number:
+			rates[(row.do_number, row.item_code)] = {'rate': rate}
+		bucket = by_item[row.item_code]
+		bucket['amount'] += flt(row.amount)
+		bucket['qty'] += qty
+	for item_code, bucket in by_item.items():
+		qty = flt(bucket['qty'])
+		rates[item_code] = {'rate': flt(bucket['amount']) / qty if qty else 0.0}
 	return rates
-
-
-def _do_amounts(filters):
-	values = _common_values(filters)
-	conditions = [
-		'pi.docstatus = 1',
-		'pi.is_return = 0',
-		"IFNULL(pi.custom_do_number, '') != ''",
-		'pi.posting_date BETWEEN %(from_date)s AND %(to_date)s',
-	]
-	if values.get('company'):
-		conditions.append('pi.company = %(company)s')
-	if values.get('do_number'):
-		conditions.append('pi.custom_do_number LIKE %(do_number)s')
-
-	rows = frappe.db.sql(
-		f"""
-		SELECT custom_do_number AS do_number, SUM(grand_total) AS amount
-		FROM `tabPurchase Invoice` pi
-		WHERE {' AND '.join(conditions)}
-		GROUP BY custom_do_number
-		""",
-		values,
-		as_dict=True,
-	)
-	return {row.do_number: flt(row.amount) for row in rows}
