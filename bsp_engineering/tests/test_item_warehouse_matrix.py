@@ -136,17 +136,31 @@ class TestItemWarehouseMatrix(FrappeTestCase):
 		self.assertEqual(labels, ["Item Code", "Quantity", "Value", "Dhaka Showroom Qty", "Dhaka Showroom Value"])
 
 	def test_columns_keep_only_warehouses_with_a_figure(self):
+		# Default keeps every warehouse column; Hide Zero Columns trims empties.
 		columns, data = sales_summary(
-			{"company": COMPANY, "from_date": "2026-01-01", "to_date": "2026-10-22"}
+			{
+				"company": COMPANY,
+				"from_date": "2026-01-01",
+				"to_date": "2026-10-22",
+				"hide_zero_columns": 1,
+			}
 		)
 		labels = [column["label"] for column in columns]
-		self.assertEqual(labels[:5], ["Item Code", "Item Name", "Item Group", "Quantity", "Value"])
+		self.assertEqual(
+			labels[:5],
+			["Item Code", "Item Name", "Item Group", "Grand Total Qty", "Grand Total Value"],
+		)
 		self.assertIn("Dhaka Showroom Qty", labels)
 		self.assertEqual(labels[labels.index("Dhaka Showroom Qty") + 1], "Dhaka Showroom Value")
 		self.assertNotIn("All Warehouses", labels)
 		_assert_shown_warehouses_have_a_figure(self, columns, data)
 		purchase_columns, purchase_rows = purchase_summary(
-			{"company": COMPANY, "from_date": "2026-01-01", "to_date": "2026-10-22"}
+			{
+				"company": COMPANY,
+				"from_date": "2026-01-01",
+				"to_date": "2026-10-22",
+				"hide_zero_columns": 1,
+			}
 		)
 		_assert_shown_warehouses_have_a_figure(self, purchase_columns, purchase_rows)
 		for row in data:
@@ -165,9 +179,14 @@ class TestItemWarehouseMatrix(FrappeTestCase):
 			self.assertIsInstance(data, list)
 
 	def test_weight_report_uses_as_on_date_and_runs(self):
-		columns, data = weight_summary({"company": COMPANY, "to_date": nowdate()})
-		self.assertEqual([column["fieldname"] for column in columns[:3]], ["item_code", "item_name", "item_group"])
-		for column in columns[3:]:
+		columns, data = weight_summary(
+			{"company": COMPANY, "to_date": nowdate(), "hide_zero_columns": 1}
+		)
+		self.assertEqual(
+			[column["fieldname"] for column in columns[:4]],
+			["item_code", "item_name", "item_group", "quantity"],
+		)
+		for column in columns[4:]:
 			self.assertTrue(any(flt(row.get(column["fieldname"])) for row in data))
 
 	def test_top_selling_includes_items_and_totals(self):
@@ -176,13 +195,17 @@ class TestItemWarehouseMatrix(FrappeTestCase):
 				"company": COMPANY,
 				"from_date": add_days(nowdate(), 1),
 				"to_date": add_days(nowdate(), 2),
+				"hide_zero_columns": 1,
 			},
 			include_all_items=True,
 		)
 		labels = [column["label"] for column in columns]
-		self.assertEqual(labels[3:5], ["Quantity", "Value"])
-		# Nothing was sold in this range, so every warehouse column is 0 and stays hidden.
-		self.assertEqual(labels, ["Item Code", "Item Name", "Item Group", "Quantity", "Value"])
+		self.assertEqual(labels[3:5], ["Grand Total Qty", "Grand Total Value"])
+		# Nothing sold in this range + hide zeros → only the grand-total columns remain.
+		self.assertEqual(
+			labels,
+			["Item Code", "Item Name", "Item Group", "Grand Total Qty", "Grand Total Value"],
+		)
 		self.assertGreater(len(data), 100)
 		self.assertTrue(all(row["quantity"] == 0 and row["value"] == 0 for row in data))
 

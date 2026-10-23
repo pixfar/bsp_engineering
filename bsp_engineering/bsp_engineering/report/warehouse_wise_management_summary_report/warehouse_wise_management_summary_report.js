@@ -37,5 +37,5 @@ frappe.query_reports["Warehouse Wise Management Summary Report"] = {
 				return frappe.db.get_link_options("Warehouse", txt, filters);
 			},
 		},
-	],
+	].concat(bsp_engineering.report_zero_filters || []),
 };

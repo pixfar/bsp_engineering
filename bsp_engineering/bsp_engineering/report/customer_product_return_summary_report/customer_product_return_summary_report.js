@@ -62,7 +62,7 @@ frappe.query_reports["Customer Product Return Summary Report"] = {
 			options: "Item",
 			get_data: (txt) => frappe.db.get_link_options("Item", txt),
 		},
-	],
+	].concat(bsp_engineering.report_zero_filters || []),
 
 	formatter: function (value, row, column, data, default_formatter) {
 		if (column.fieldname === "item_code" && data && data.item_code) {

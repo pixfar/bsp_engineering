@@ -62,7 +62,7 @@ frappe.query_reports["Item Wise Weight Summary Report"] = {
 			fieldtype: "Link",
 			options: "UOM",
 		},
-	],
+	].concat(bsp_engineering.report_zero_filters || []),
 
 	formatter: function (value, row, column, data, default_formatter) {
 		// Item link formatter would print "code: name" beside the Item Name column.

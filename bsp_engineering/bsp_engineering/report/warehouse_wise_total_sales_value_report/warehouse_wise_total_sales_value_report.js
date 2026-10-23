@@ -56,5 +56,5 @@ frappe.query_reports["Warehouse Wise Total Sales Value Report"] = {
 			options: "Report Group",
 			get_data: (txt) => frappe.db.get_link_options("Report Group", txt),
 		},
-	],
+	].concat(bsp_engineering.report_zero_filters || []),
 };

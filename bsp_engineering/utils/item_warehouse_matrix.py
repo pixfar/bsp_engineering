@@ -13,7 +13,7 @@ import frappe
 from frappe import _
 from frappe.query_builder import DocType
 from frappe.query_builder.functions import Coalesce, Sum
-from frappe.utils import flt, get_first_day, getdate, today
+from frappe.utils import cint, flt, get_first_day, getdate, today
 
 from bsp_engineering.utils.item_category_sort import (
 	get_item_sort_map,
@@ -165,10 +165,17 @@ def warehouse_columns(warehouses, fieldnames, with_value=False):
 
 
 def total_columns():
+	"""Cross-warehouse totals — shown before warehouse columns for a quick sum."""
 	return [
-		{'label': _('Quantity'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 110},
-		{'label': _('Value'), 'fieldname': 'value', 'fieldtype': 'Currency', 'width': 130},
+		{'label': _('Grand Total Qty'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 120},
+		{'label': _('Grand Total Value'), 'fieldname': 'value', 'fieldtype': 'Currency', 'width': 140},
 	]
+
+
+def hide_zero_flags(filters):
+	"""Optional report Checks: default off so all zero columns/rows stay visible."""
+	filters = filters or {}
+	return cint(filters.get('hide_zero_columns')), cint(filters.get('hide_zero_rows'))
 
 
 def restrict_items(query, item, filters):
@@ -201,11 +208,12 @@ def assemble_rows(
 	value_field='qty',
 	with_value=False,
 	group_by_party=False,
+	hide_zero_rows=False,
 ):
 	"""One row per item (or per party+item when group_by_party). Warehouse
 	cells sum `value_field`. `with_value` also keeps the invoice amount beside
-	each warehouse qty. Items with no quantity or amount in any shown warehouse
-	are left out, unless `include_items` names the rows that must stay."""
+	each warehouse qty. When `hide_zero_rows`, items with no quantity or amount
+	in any shown warehouse are left out (unless `include_items` forces them)."""
 	blank = {}
 	for warehouse in warehouses:
 		qty_fieldname = fieldnames[warehouse.name]
@@ -258,6 +266,10 @@ def assemble_rows(
 			)
 		return list(by_key.values())
 
+	rows = list(by_key.values())
+	if not hide_zero_rows:
+		return rows
+
 	def has_figure(row):
 		for warehouse in warehouses:
 			qty_fieldname = fieldnames[warehouse.name]
@@ -267,7 +279,7 @@ def assemble_rows(
 				return True
 		return False
 
-	return [row for row in by_key.values() if has_figure(row)]
+	return [row for row in rows if has_figure(row)]
 
 
 _FIXED_FIELDS = {
@@ -284,7 +296,8 @@ _FIXED_FIELDS = {
 
 def omit_empty_warehouse_columns(columns, data, warehouses, fieldnames, with_value=False):
 	"""Drop a warehouse when every row is 0 there. Qty and value stay
-	together: one non-zero side keeps both columns."""
+	together: one non-zero side keeps both columns. Only used when the
+	Hide Zero Columns filter is on."""
 	active = set()
 	for warehouse in warehouses:
 		qty_field = fieldnames[warehouse.name]
@@ -300,7 +313,16 @@ def omit_empty_warehouse_columns(columns, data, warehouses, fieldnames, with_val
 	]
 
 
-def _finish(columns, data, warehouses, fieldnames, with_value=False, sort_by_value=False, group_by_party=False):
+def _finish(
+	columns,
+	data,
+	warehouses,
+	fieldnames,
+	with_value=False,
+	sort_by_value=False,
+	group_by_party=False,
+	filters=None,
+):
 	if not warehouses:
 		return columns, []
 	if sort_by_value:
@@ -315,7 +337,9 @@ def _finish(columns, data, warehouses, fieldnames, with_value=False, sort_by_val
 		)
 	else:
 		data = sort_rows_by_item_category(data, get_item_sort_map())
-	columns = omit_empty_warehouse_columns(columns, data, warehouses, fieldnames, with_value)
+	hide_cols, _hide_rows = hide_zero_flags(filters)
+	if hide_cols:
+		columns = omit_empty_warehouse_columns(columns, data, warehouses, fieldnames, with_value)
 	return columns, data
 
 
@@ -331,6 +355,7 @@ def _invoice_matrix_columns(warehouses, fieldnames, party_field=None):
 
 def sales_summary(filters=None, include_all_items=False, returns_only=False):
 	filters = frappe._dict(filters or {})
+	hide_cols, hide_rows = hide_zero_flags(filters)
 	warehouses = get_matrix_warehouses(filters)
 	fieldnames = warehouse_fieldnames(warehouses)
 	party_field = 'customer' if returns_only else None
@@ -355,6 +380,7 @@ def sales_summary(filters=None, include_all_items=False, returns_only=False):
 		include_items=include,
 		with_value=True,
 		group_by_party=returns_only,
+		hide_zero_rows=hide_rows,
 	)
 	return _finish(
 		columns,
@@ -364,11 +390,13 @@ def sales_summary(filters=None, include_all_items=False, returns_only=False):
 		with_value=True,
 		sort_by_value=include_all_items,
 		group_by_party=returns_only,
+		filters=filters,
 	)
 
 
 def purchase_summary(filters=None, returns_only=False):
 	filters = frappe._dict(filters or {})
+	_hide_cols, hide_rows = hide_zero_flags(filters)
 	warehouses = get_matrix_warehouses(filters)
 	fieldnames = warehouse_fieldnames(warehouses)
 	party_field = 'supplier' if returns_only else None
@@ -385,15 +413,27 @@ def purchase_summary(filters=None, returns_only=False):
 		party_group_field='supplier_group',
 		returns_only=returns_only,
 	)
-	data = assemble_rows(raw, warehouses, fieldnames, with_value=True, group_by_party=returns_only)
-	return _finish(columns, data, warehouses, fieldnames, with_value=True, group_by_party=returns_only)
+	data = assemble_rows(
+		raw,
+		warehouses,
+		fieldnames,
+		with_value=True,
+		group_by_party=returns_only,
+		hide_zero_rows=hide_rows,
+	)
+	return _finish(
+		columns, data, warehouses, fieldnames, with_value=True, group_by_party=returns_only, filters=filters
+	)
 
 
 def stock_entry_summary(filters=None, purpose=None, warehouse_field='t_warehouse'):
 	filters = frappe._dict(filters or {})
+	_hide_cols, hide_rows = hide_zero_flags(filters)
 	warehouses = get_matrix_warehouses(filters)
 	fieldnames = warehouse_fieldnames(warehouses)
-	columns = item_columns() + warehouse_columns(warehouses, fieldnames)
+	columns = item_columns() + [
+		{'label': _('Grand Total Qty'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 120},
+	] + warehouse_columns(warehouses, fieldnames)
 	if not warehouses:
 		return columns, []
 
@@ -403,25 +443,31 @@ def stock_entry_summary(filters=None, purpose=None, warehouse_field='t_warehouse
 		purpose=purpose,
 		warehouse_field=warehouse_field,
 	)
-	data = assemble_rows(raw, warehouses, fieldnames)
-	return _finish(columns, data, warehouses, fieldnames)
+	data = assemble_rows(raw, warehouses, fieldnames, hide_zero_rows=hide_rows)
+	return _finish(columns, data, warehouses, fieldnames, filters=filters)
 
 
 def weight_summary(filters=None):
 	"""Stock on hand as of `to_date`, times the item's default weight,
 	per warehouse. Current Bin qty would ignore the As On Date filter."""
 	filters = frappe._dict(filters or {})
+	_hide_cols, hide_rows = hide_zero_flags(filters)
 	as_on = getdate(filters.get('to_date') or today())
 	warehouses = get_matrix_warehouses(filters)
 	fieldnames = warehouse_fieldnames(warehouses)
-	columns = item_columns() + warehouse_columns(warehouses, fieldnames)
+	columns = item_columns() + [
+		{'label': _('Grand Total Weight'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 130},
+	] + warehouse_columns(warehouses, fieldnames)
 	if not warehouses:
 		return columns, []
 
 	raw = _balance_rows(filters, [warehouse.name for warehouse in warehouses], as_on)
 	_apply_item_weight(raw)
-	data = assemble_rows(raw, warehouses, fieldnames, value_field='weight')
-	return _finish(columns, data, warehouses, fieldnames)
+	data = assemble_rows(raw, warehouses, fieldnames, value_field='weight', hide_zero_rows=hide_rows)
+	# Warehouse cells hold weight; Grand Total should sum those, not stock qty.
+	for row in data:
+		row['quantity'] = sum(flt(row.get(fieldnames[warehouse.name])) for warehouse in warehouses)
+	return _finish(columns, data, warehouses, fieldnames, filters=filters)
 
 
 def _invoice_rows(filters, warehouse_names, parent, child, party_field, party_group_field, returns_only=False):

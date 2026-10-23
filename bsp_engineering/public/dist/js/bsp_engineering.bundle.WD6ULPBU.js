@@ -741,5 +741,22 @@
     delete frappe.template.compiled.print_template;
     delete frappe.template.compiled.print_grid;
   })();
+
+  // ../bsp_engineering/bsp_engineering/public/js/report_zero_filters.js
+  frappe.provide("bsp_engineering");
+  bsp_engineering.report_zero_filters = [
+    {
+      fieldname: "hide_zero_columns",
+      label: __("Hide Zero Columns"),
+      fieldtype: "Check",
+      default: 0
+    },
+    {
+      fieldname: "hide_zero_rows",
+      label: __("Hide Zero Rows"),
+      fieldtype: "Check",
+      default: 0
+    }
+  ];
 })();
-//# sourceMappingURL=bsp_engineering.bundle.EKSBKRUL.js.map
+//# sourceMappingURL=bsp_engineering.bundle.WD6ULPBU.js.map

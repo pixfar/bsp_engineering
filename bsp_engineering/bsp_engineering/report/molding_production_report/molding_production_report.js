@@ -50,7 +50,7 @@ frappe.query_reports["Molding Production Report"] = {
 			options: "Item Group",
 			get_data: (txt) => frappe.db.get_link_options("Item Group", txt),
 		},
-	],
+	].concat(bsp_engineering.report_zero_filters || []),
 
 	formatter: function (value, row, column, data, default_formatter) {
 		if (column.fieldname === "item_code" && data && data.item_code) {

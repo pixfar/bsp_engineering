@@ -81,7 +81,7 @@ frappe.query_reports["Warehouse Wise Top Selling Items Report"] = {
 			options: "Production Group",
 			get_data: (txt) => frappe.db.get_link_options("Production Group", txt),
 		},
-	],
+	].concat(bsp_engineering.report_zero_filters || []),
 
 	formatter: function (value, row, column, data, default_formatter) {
 		// Item link formatter would print "code: name" beside the Item Name column.

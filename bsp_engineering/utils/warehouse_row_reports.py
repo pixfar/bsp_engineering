@@ -12,7 +12,12 @@ from frappe.query_builder import DocType
 from frappe.query_builder.functions import Coalesce, Count, Sum
 from frappe.utils import flt, getdate
 
-from bsp_engineering.utils.item_warehouse_matrix import date_range, get_matrix_warehouses, parse_list
+from bsp_engineering.utils.item_warehouse_matrix import (
+	date_range,
+	get_matrix_warehouses,
+	hide_zero_flags,
+	parse_list,
+)
 from bsp_engineering.utils.report_permissions import check_warehouse_filter
 
 DEFAULT_REPORT_GROUPS = (
@@ -99,6 +104,7 @@ def _count_by_warehouse_status(rows, warehouses, statuses, fieldnames, warehouse
 
 def requisition_summary(filters=None):
 	filters = frappe._dict(filters or {})
+	hide_cols, hide_rows = hide_zero_flags(filters)
 	warehouses = get_matrix_warehouses(filters)
 	fieldnames = _status_fieldnames(REQUISITION_STATUSES)
 	columns = _warehouse_label_columns() + _status_columns(REQUISITION_STATUSES, fieldnames)
@@ -117,11 +123,20 @@ def requisition_summary(filters=None):
 		.groupby(req.target_warehouse, req.transfer_status)
 	)
 	data = _count_by_warehouse_status(query.run(as_dict=True), warehouses, REQUISITION_STATUSES, fieldnames)
-	return _omit_zero_status_columns(columns, data, REQUISITION_STATUSES, fieldnames), data
+	if hide_rows:
+		data = [
+			row
+			for row in data
+			if any(flt(row.get(fieldnames[status])) for status in REQUISITION_STATUSES)
+		]
+	if hide_cols:
+		columns = _omit_zero_status_columns(columns, data, REQUISITION_STATUSES, fieldnames)
+	return columns, data
 
 
 def transfer_summary(filters=None):
 	filters = frappe._dict(filters or {})
+	hide_cols, hide_rows = hide_zero_flags(filters)
 	warehouses = get_matrix_warehouses(filters)
 	fieldnames = _status_fieldnames(TRANSFER_STATUSES)
 	columns = _warehouse_label_columns() + _status_columns(TRANSFER_STATUSES, fieldnames)
@@ -144,7 +159,15 @@ def transfer_summary(filters=None):
 		.groupby(transfer.to_warehouse, transfer.transfer_status)
 	)
 	data = _count_by_warehouse_status(query.run(as_dict=True), warehouses, TRANSFER_STATUSES, fieldnames)
-	return _omit_zero_status_columns(columns, data, TRANSFER_STATUSES, fieldnames), data
+	if hide_rows:
+		data = [
+			row
+			for row in data
+			if any(flt(row.get(fieldnames[status])) for status in TRANSFER_STATUSES)
+		]
+	if hide_cols:
+		columns = _omit_zero_status_columns(columns, data, TRANSFER_STATUSES, fieldnames)
+	return columns, data
 
 
 def production_progress(filters=None):
@@ -180,12 +203,13 @@ def production_progress(filters=None):
 	data = _count_by_warehouse_status(
 		query.run(as_dict=True), warehouses, PRODUCTION_PROGRESS_STATUSES, fieldnames
 	)
-	# Drop warehouses with no plans; keep every status column.
-	data = [
-		row
-		for row in data
-		if any(flt(row.get(fieldnames[status])) for status in PRODUCTION_PROGRESS_STATUSES)
-	]
+	_hide_cols, hide_rows = hide_zero_flags(filters)
+	if hide_rows:
+		data = [
+			row
+			for row in data
+			if any(flt(row.get(fieldnames[status])) for status in PRODUCTION_PROGRESS_STATUSES)
+		]
 	return columns, data
 
 
@@ -252,12 +276,20 @@ def sales_value_by_report_group(filters=None):
 			bucket[field] = flt(bucket[field]) + flt(row.amount)
 
 	data = [by_wh[warehouse.name] for warehouse in warehouses]
-	active = {field for field in fieldnames.values() if any(flt(row.get(field)) for row in data)}
-	columns = [
-		column
-		for column in columns
-		if column['fieldname'] == 'warehouse_name' or column['fieldname'] in active
-	]
+	hide_cols, hide_rows = hide_zero_flags(filters)
+	if hide_rows:
+		data = [
+			row
+			for row in data
+			if any(flt(row.get(field)) for field in fieldnames.values())
+		]
+	if hide_cols:
+		active = {field for field in fieldnames.values() if any(flt(row.get(field)) for row in data)}
+		columns = [
+			column
+			for column in columns
+			if column['fieldname'] == 'warehouse_name' or column['fieldname'] in active
+		]
 	return columns, data
 
 
@@ -272,10 +304,11 @@ def _report_groups():
 
 def top_selling_by_warehouse(filters=None):
 	filters = frappe._dict(filters or {})
+	_hide_cols, hide_rows = hide_zero_flags(filters)
 	warehouses = get_matrix_warehouses(filters)
 	columns = _warehouse_label_columns() + [
-		{'label': _('Quantity'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 120},
-		{'label': _('Value'), 'fieldname': 'value', 'fieldtype': 'Currency', 'width': 140},
+		{'label': _('Grand Total Qty'), 'fieldname': 'quantity', 'fieldtype': 'Float', 'width': 120},
+		{'label': _('Grand Total Value'), 'fieldname': 'value', 'fieldtype': 'Currency', 'width': 140},
 	]
 	if not warehouses:
 		return columns, []
@@ -309,7 +342,7 @@ def top_selling_by_warehouse(filters=None):
 		row = totals.get(warehouse.name)
 		quantity = flt(row.quantity) if row else 0.0
 		value = flt(row.value) if row else 0.0
-		if not quantity and not value:
+		if hide_rows and not quantity and not value:
 			continue
 		data.append(
 			{
