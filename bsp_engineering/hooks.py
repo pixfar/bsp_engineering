@@ -324,7 +324,15 @@ doc_events = {
 			'bsp_engineering.doc_events.work_order.sync_source_warehouse.validate'
 		),
 	},
+	'Salary Slip': {
+		# Stamp production date / wastage week onto molding Additional Salary rows
+		# so earnings & deductions show Date next to repeated component names.
+		'validate': (
+			'bsp_engineering.doc_events.salary_slip.stamp_molding_dates.stamp_molding_dates'
+		),
+	},
 }
+
 
 # Scheduled Tasks
 # ---------------

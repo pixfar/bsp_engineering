@@ -68,31 +68,48 @@ function setup_fetch_attendance_button(frm) {
 			return;
 		}
 
-		frappe.call({
-			method:
-				'bsp_engineering.bsp_engineering.doctype.molding_daily_production'
-				+ '.molding_daily_production.fetch_attendance',
-			args: { date: frm.doc.date },
-			freeze: true,
-			freeze_message: __('Fetching attendance...'),
-			callback(r) {
-				if (!r.message) return;
+		frappe.prompt(
+			[
+				{
+					fieldname: 'department',
+					fieldtype: 'Link',
+					options: 'Department',
+					label: __('Department'),
+					default: 'Vatti (Molding) - BSP',
+					reqd: 1,
+					description: __('Only Present employees in this department are fetched.'),
+				},
+			],
+			(values) => {
+				frappe.call({
+					method:
+						'bsp_engineering.bsp_engineering.doctype.molding_daily_production'
+						+ '.molding_daily_production.fetch_attendance',
+					args: { date: frm.doc.date, department: values.department },
+					freeze: true,
+					freeze_message: __('Fetching attendance...'),
+					callback(r) {
+						if (!r.message) return;
 
-				frm.clear_table('present_employees');
-				r.message.forEach((emp) => {
-					const row = frm.add_child('present_employees');
-					row.employee = emp.employee;
-					row.employee_name = emp.employee_name;
-					row.point = emp.point;
-				});
-				frm.refresh_field('present_employees');
-				recalculate(frm);
+						frm.clear_table('present_employees');
+						r.message.forEach((emp) => {
+							const row = frm.add_child('present_employees');
+							row.employee = emp.employee;
+							row.employee_name = emp.employee_name;
+							row.point = emp.point;
+						});
+						frm.refresh_field('present_employees');
+						recalculate(frm);
 
-				frappe.show_alert({
-					message: __('{0} present employee(s) fetched.', [r.message.length]),
-					indicator: 'green',
+						frappe.show_alert({
+							message: __('{0} present employee(s) fetched.', [r.message.length]),
+							indicator: 'green',
+						});
+					},
 				});
 			},
-		});
+			__('Fetch Attendance'),
+			__('Fetch'),
+		);
 	}).addClass('btn-primary');
 }

@@ -10,6 +10,12 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+# Default Attendance / employee filter for molding screens. Non-molding
+# departments (showroom, drivers, drill, …) are Present company-wide but are
+# not part of the piece-rate pool.
+DEFAULT_MOLDING_DEPARTMENT = "Vatti (Molding) - BSP"
+
+
 
 def create_additional_salary(employee, salary_component, amount, payroll_date, ref_doctype, ref_docname):
 	"""Create and submit one Additional Salary for `employee`. Raises on

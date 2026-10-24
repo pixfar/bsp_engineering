@@ -8,6 +8,7 @@ from frappe.query_builder import Criterion
 from frappe.utils import add_days, flt, getdate
 
 from bsp_engineering.bsp_engineering.utils.molding_salary import (
+	DEFAULT_MOLDING_DEPARTMENT,
 	cancel_additional_salaries,
 	create_additional_salaries_or_rollback,
 )
@@ -77,15 +78,29 @@ def get_upcoming_weekday(from_date, weekday):
 
 
 @frappe.whitelist()
-def fetch_attendance(date):
+def fetch_attendance(date, department=None):
 	"""Employees marked Present in standard Attendance for `date`, each with
 	their current Molding Point, for the "Fetch Attendance" button to populate
-	the child table with."""
+	the child table with.
+
+	`department` defaults to Vatti (Molding) - BSP so Fetch Attendance does not
+	pull showroom / driver / other non-molding staff who happen to be Present.
+	"""
 	if not date:
 		frappe.throw(_("Date is required to fetch attendance."))
 
+	department = (department or "").strip() or DEFAULT_MOLDING_DEPARTMENT
+
 	Attendance = frappe.qb.DocType("Attendance")
 	Employee = frappe.qb.DocType("Employee")
+
+	conditions = [
+		Attendance.attendance_date == getdate(date),
+		Attendance.status == "Present",
+		Attendance.docstatus == 1,
+		Employee.status == "Active",
+		Employee.department == department,
+	]
 
 	rows = (
 		frappe.qb.from_(Attendance)
@@ -95,28 +110,25 @@ def fetch_attendance(date):
 			Attendance.employee,
 			Employee.employee_name,
 			Employee.custom_molding_point,
+			Employee.department,
 		)
-		.where(
-			Criterion.all(
-				[
-					Attendance.attendance_date == getdate(date),
-					Attendance.status == "Present",
-					Attendance.docstatus == 1,
-					Employee.status == "Active",
-				]
-			)
-		)
+		.where(Criterion.all(conditions))
 		.orderby(Employee.employee_name)
 	).run(as_dict=True)
 
 	if not rows:
-		frappe.msgprint(_("No employees found marked Present for {0}.").format(date))
+		frappe.msgprint(
+			_("No employees found marked Present for {0} in department {1}.").format(
+				date, department
+			)
+		)
 
 	return [
 		{
 			"employee": row.employee,
 			"employee_name": row.employee_name,
 			"point": flt(row.custom_molding_point),
+			"department": row.department,
 		}
 		for row in rows
 	]
