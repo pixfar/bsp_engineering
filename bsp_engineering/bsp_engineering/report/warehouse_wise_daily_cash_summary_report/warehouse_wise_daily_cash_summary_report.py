@@ -117,7 +117,12 @@ def get_data(filters, from_date, to_date):
 	)
 
 	company = filters.company
-	warehouse = filters.get("warehouse")
+	# MultiSelectList may send a list, JSON string, or a single name.
+	from bsp_engineering.bsp_engineering.report.daily_cash_summary_report.daily_cash_summary_report import (
+		_normalize_warehouses,
+	)
+
+	warehouse = _normalize_warehouses(filters.get("warehouse"))
 	check_warehouse_filter(warehouse)
 	(
 		get_sales_invoices,

@@ -40,7 +40,7 @@ def execute(filters=None):
 		columns, data = get_group_columns(group_by), summarise(rows, group_by)
 	else:
 		columns, data = get_detail_columns(), rows
-	return columns, data, None, get_chart(rows), get_summary(rows)
+	return columns, data
 
 
 def _as_list(value):
@@ -209,35 +209,3 @@ def get_group_columns(group_by):
 		_currency("Claimed Amount", "claimed_amount", 160),
 	]
 
-
-def get_summary(rows):
-	claimed = sum(r.claimed_amount for r in rows)
-	return [
-		{"value": len({r.expense_claim for r in rows}), "label": _("Expense Claims"), "datatype": "Int", "indicator": "Blue"},
-		{"value": claimed, "label": _("Total Claimed"), "datatype": "Currency", "indicator": "Orange"},
-		{
-			"value": len({r.employee for r in rows}),
-			"label": _("Employees"),
-			"datatype": "Int",
-			"indicator": "Blue",
-		},
-	]
-
-
-def get_chart(rows):
-	"""Top 10 expense types by claimed amount."""
-	totals = {}
-	for row in rows:
-		totals[row.expense_type] = totals.get(row.expense_type, 0.0) + row.claimed_amount
-	top = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:10]
-	if not top:
-		return None
-	return {
-		"data": {
-			"labels": [label or _("Not Set") for label, _value in top],
-			"datasets": [{"name": _("Claimed Amount"), "values": [value for _label, value in top]}],
-		},
-		"type": "bar",
-		"fieldtype": "Currency",
-		"colors": ["#5e64ff"],
-	}

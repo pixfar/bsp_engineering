@@ -69,13 +69,37 @@ def get_columns():
 	]
 
 
+def _normalize_warehouses(warehouse):
+	"""None / '' → None; single name or list/tuple → non-empty list of names."""
+	if not warehouse:
+		return None
+	if isinstance(warehouse, (list, tuple, set)):
+		warehouses = [w for w in warehouse if w]
+		return warehouses or None
+	if isinstance(warehouse, str):
+		value = warehouse.strip()
+		if not value:
+			return None
+		if value.startswith("["):
+			parsed = frappe.parse_json(value) or []
+			warehouses = [w for w in parsed if w]
+			return warehouses or None
+		return [value]
+	return None
+
+
 def _warehouse_condition(column, warehouse):
 	"""column must be the fully-qualified column, e.g. "si.set_warehouse" --
-	each doctype involved names its warehouse field differently."""
-	if warehouse:
-		return f"AND {column} = %(warehouse)s", {"warehouse": warehouse}
-	return "", {}
+	each doctype involved names its warehouse field differently.
 
+	``warehouse`` may be a single name or a list (MultiSelectList).
+	"""
+	warehouses = _normalize_warehouses(warehouse)
+	if not warehouses:
+		return "", {}
+	if len(warehouses) == 1:
+		return f"AND {column} = %(warehouse)s", {"warehouse": warehouses[0]}
+	return f"AND {column} IN %(warehouses)s", {"warehouses": tuple(warehouses)}
 
 def _resolve_return_warehouses(rows, doctype="Sales Invoice"):
 	"""A return Sales/Purchase Invoice leaves its own `set_warehouse` blank
@@ -118,8 +142,10 @@ def get_sales_invoices(company, warehouse, from_date, to_date):
 		as_dict=True,
 	)
 	rows = _resolve_return_warehouses(rows)
-	if warehouse:
-		rows = [row for row in rows if row.warehouse == warehouse]
+	allowed = _normalize_warehouses(warehouse)
+	if allowed:
+		allowed = set(allowed)
+		rows = [row for row in rows if row.warehouse in allowed]
 	rows.sort(key=lambda row: (row.warehouse, row.posting_date, row.name))
 	return rows
 
@@ -143,11 +169,12 @@ def get_purchase_invoices(company, warehouse, from_date, to_date):
 		as_dict=True,
 	)
 	rows = _resolve_return_warehouses(rows, doctype="Purchase Invoice")
-	if warehouse:
-		rows = [row for row in rows if row.warehouse == warehouse]
+	allowed = _normalize_warehouses(warehouse)
+	if allowed:
+		allowed = set(allowed)
+		rows = [row for row in rows if row.warehouse in allowed]
 	rows.sort(key=lambda row: (row.warehouse, row.posting_date, row.name))
 	return rows
-
 
 def get_expense_claims(company, warehouse, from_date, to_date):
 	wh_condition, wh_params = _warehouse_condition("ec.custom_warehouse", warehouse)
@@ -206,9 +233,13 @@ def get_journal_adjustments(company, warehouse, from_date, to_date):
 		get_warehouse_by_account_map,
 	)
 
-	if warehouse:
-		accounts = get_accounts_for_warehouse(warehouse)
-		account_to_warehouse = {account: warehouse for account in accounts}
+	warehouses = _normalize_warehouses(warehouse)
+	if warehouses:
+		account_to_warehouse = {}
+		for wh in warehouses:
+			for account in get_accounts_for_warehouse(wh):
+				account_to_warehouse[account] = wh
+		accounts = list(account_to_warehouse.keys())
 	else:
 		account_to_warehouse = get_warehouse_by_account_map(company)
 		accounts = list(account_to_warehouse.keys())
@@ -347,8 +378,9 @@ def get_opening_balances(company, warehouse, from_date):
 
 	balances = {}
 
-	if warehouse:
-		mapped_warehouses = [warehouse] if get_accounts_for_warehouse(warehouse) else []
+	warehouses = _normalize_warehouses(warehouse)
+	if warehouses:
+		mapped_warehouses = [wh for wh in warehouses if get_accounts_for_warehouse(wh)]
 	else:
 		mapped_warehouses = sorted(set(get_warehouse_by_account_map(company).values()))
 
@@ -728,15 +760,15 @@ def _active_days(company, warehouse, from_date, to_date):
 	aren't skipped either)."""
 	from bsp_engineering.utils.warehouse_accounts import get_accounts_for_warehouse
 
-	if warehouse:
-		warehouses = [warehouse]
-	else:
+	warehouses = _normalize_warehouses(warehouse)
+	if not warehouses:
 		warehouses = frappe.get_all("Warehouse", filters={"company": company, "is_group": 0}, pluck="name")
 
 	active = {}
+	allowed = set(warehouses)
 
 	def mark(wh, date):
-		if wh and (not warehouse or wh == warehouse):
+		if wh and wh in allowed:
 			active.setdefault(wh, set()).add(getdate(date))
 
 	for fetch in (get_sales_invoices, get_purchase_invoices, get_expense_claims, get_deposits, get_fund_transfers):

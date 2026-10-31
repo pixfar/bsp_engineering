@@ -1,0 +1,59 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Role Profile",
+  "modified": "2026-10-31 19:58:47.168525",
+  "name": "Showroom User",
+  "role_profile": "Showroom User",
+  "roles": [
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "Employee"
+   },
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "Item Manager"
+   },
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "POS Awesome Supervisor"
+   },
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "POS Manager"
+   },
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "POS User"
+   },
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "Sales User"
+   },
+   {
+    "parent": "Showroom User",
+    "parentfield": "roles",
+    "parenttype": "Role Profile",
+    "role": "Stock User"
+   }
+  ]
+ }
+]

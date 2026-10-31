@@ -3,9 +3,9 @@
 A user restricted by a User Permission on Warehouse -- or on Territory
 (Warehouse.custom_territory) -- sees only those warehouses' data in every
 BSP report: warehouse columns, warehouse rows, and the figures/totals built
-from them. Everyone else (no such User Permission, or System Manager / BSP
-Admin / BSP Viewer, same unrestricted roles as the POS warehouse switcher)
-keeps seeing every warehouse.
+from them. That includes System Manager / BSP Admin / BSP Viewer: Warehouse
+User Permissions always win over the usual all-showroom role bypass.
+Everyone else with no such User Permission keeps seeing every warehouse.
 
 Use get_report_permitted_warehouses() (None = unrestricted) at the point a
 report picks its warehouses, so totals are computed from permitted data only.
@@ -30,10 +30,11 @@ def _expand_tree(doctype, names):
 
 def get_report_permitted_warehouses(user=None):
 	"""None when the user may see every warehouse, else the set of warehouse
-	names they may see (possibly empty). Warehouse permissions win; Territory
-	permissions apply when the user has no Warehouse permission."""
+	names they may see (possibly empty). Warehouse permissions win over
+	privileged roles; Territory permissions apply when the user has no
+	Warehouse permission."""
 	user = user or frappe.session.user
-	if user == "Administrator" or POS_WAREHOUSE_UNRESTRICTED_ROLES.intersection(frappe.get_roles(user)):
+	if user == "Administrator":
 		return None
 
 	# Per-request cache (a report may ask several times).
@@ -49,18 +50,24 @@ def get_report_permitted_warehouses(user=None):
 	if warehouse_perms:
 		permitted = _expand_tree("Warehouse", warehouse_perms)
 	else:
-		territory_perms = frappe.get_all(
-			"User Permission", filters={"user": user, "allow": "Territory"}, pluck="for_value"
-		)
-		if territory_perms and frappe.get_meta("Warehouse").has_field("custom_territory"):
-			territories = _expand_tree("Territory", territory_perms)
-			permitted = set(
-				frappe.get_all(
-					"Warehouse", filters={"custom_territory": ["in", list(territories)]}, pluck="name"
-				)
-			)
-		else:
+		# No Warehouse UP: privileged roles stay unrestricted.
+		if POS_WAREHOUSE_UNRESTRICTED_ROLES.intersection(frappe.get_roles(user)):
 			permitted = None
+		else:
+			territory_perms = frappe.get_all(
+				"User Permission", filters={"user": user, "allow": "Territory"}, pluck="for_value"
+			)
+			if territory_perms and frappe.get_meta("Warehouse").has_field("custom_territory"):
+				territories = _expand_tree("Territory", territory_perms)
+				permitted = set(
+					frappe.get_all(
+						"Warehouse",
+						filters={"custom_territory": ["in", list(territories)]},
+						pluck="name",
+					)
+				)
+			else:
+				permitted = None
 
 	cache[user] = permitted
 	return permitted

@@ -3,13 +3,11 @@ import json
 import frappe
 
 POS_WAREHOUSE_SWITCH_ROLE = 'System Manager'
-# BSP Admin already gets unrestricted warehouse access everywhere else in
-# this app (see posawesome.posawesome.utils.warehouse_doc_permissions.
-# is_privileged_invoice_viewer). BSP Viewer is the deliberately read-only
-# role handed to management for full cross-showroom oversight (see that
-# same module's is_read_only_viewer / ensure_can_create) -- neither should
-# be locked to a single POS Profile warehouse here just because this
-# particular check only ever asked about System Manager.
+# BSP Admin / BSP Viewer / System Manager may switch showrooms and see every
+# warehouse by default (see posawesome warehouse_doc_permissions). Explicit
+# Warehouse User Permissions always override that and narrow them to the
+# permitted warehouses only -- see get_user_permission_warehouse_names /
+# get_permitted_warehouse_names.
 POS_WAREHOUSE_UNRESTRICTED_ROLES = {POS_WAREHOUSE_SWITCH_ROLE, 'BSP Admin', 'BSP Viewer'}
 
 
@@ -20,12 +18,21 @@ def get_default_company():
 
 
 def can_change_pos_warehouse(user=None):
-	"""System Manager, BSP Admin, and BSP Viewer may switch among / see all
-	company warehouses -- everyone else stays locked to their POS Profile's
-	own warehouse (see should_use_pos_profile_warehouse_only)."""
+	"""Whether the POS warehouse switcher should be enabled.
+
+	True for System Manager / BSP Admin / BSP Viewer (all showrooms, or only
+	their Warehouse User Permissions when those rows exist), and for any user
+	with two or more explicit Warehouse User Permissions so they can swap
+	among those showrooms. Everyone else stays locked to their POS Profile
+	warehouse (see should_use_pos_profile_warehouse_only).
+	"""
 	user = user or frappe.session.user
-	user_roles = frappe.get_roles(user)
-	return bool(POS_WAREHOUSE_UNRESTRICTED_ROLES.intersection(user_roles))
+	if user == 'Administrator':
+		return True
+	if POS_WAREHOUSE_UNRESTRICTED_ROLES.intersection(frappe.get_roles(user)):
+		return True
+	up_names = get_user_permission_warehouse_names(user=user)
+	return bool(up_names and len(up_names) > 1)
 
 
 def _expand_warehouse_permission_names(names):
@@ -94,6 +101,58 @@ def _user_has_warehouse_restrictions(user=None):
 			{'user': user, 'allow': 'Warehouse'},
 		)
 	)
+
+
+def get_user_permission_warehouse_names(
+	user=None, company=None, include_groups=False
+):
+	"""Warehouses from explicit Warehouse User Permissions, expanded for
+	group warehouses. Returns None when the user has no such rows (so role-
+	based all-showroom access still applies for BSP Admin / System Manager /
+	BSP Viewer). Empty list means they have permission rows that resolve to
+	no usable warehouse."""
+	user = user or frappe.session.user
+	if user == 'Administrator':
+		return None
+
+	perms = _get_user_permission_warehouses(user=user)
+	if not perms:
+		return None
+
+	try:
+		from frappe.core.doctype.user_permission.user_permission import (
+			get_permitted_documents,
+		)
+
+		# get_permitted_documents reads the current session user; when
+		# resolving for another user fall back to the raw permission rows.
+		if user == frappe.session.user:
+			permitted = get_permitted_documents('Warehouse') or [
+				p.for_value for p in perms if p.for_value
+			]
+		else:
+			permitted = [p.for_value for p in perms if p.for_value]
+	except Exception:
+		permitted = [p.for_value for p in perms if p.for_value]
+
+	expanded = _expand_warehouse_permission_names(permitted)
+	if not expanded:
+		return []
+
+	if not include_groups:
+		default_wh = get_user_default_warehouse(company=company, user=user)
+		if default_wh and user == frappe.session.user:
+			others = _query_warehouses(
+				expanded, company=company, include_groups=False
+			)
+			return [default_wh] + [n for n in others if n != default_wh]
+
+	names = _query_warehouses(
+		expanded, company=company, include_groups=include_groups
+	)
+	if names or include_groups:
+		return names
+	return _query_warehouses(expanded, company=company, include_groups=True)
 
 
 def _user_has_default_warehouse_permission(user=None):
@@ -168,12 +227,22 @@ def get_user_default_warehouse(company=None, user=None):
 def get_permitted_warehouse_names(
 	company=None, include_groups=False, pos_profile=None
 ):
-	"""Return warehouse names the current user may use in POS."""
+	"""Return warehouse names the current user may use in POS.
+
+	Warehouse User Permissions always win — including for BSP Admin /
+	System Manager / BSP Viewer who otherwise see every showroom.
+	"""
 	if should_use_pos_profile_warehouse_only():
 		profile_wh = get_pos_profile_warehouse(
 			pos_profile=pos_profile, company=company
 		)
 		return [profile_wh] if profile_wh else []
+
+	up_names = get_user_permission_warehouse_names(
+		company=company, include_groups=include_groups
+	)
+	if up_names is not None:
+		return up_names
 
 	base_filters = {'disabled': 0}
 	if not include_groups:
@@ -181,59 +250,14 @@ def get_permitted_warehouse_names(
 	if company:
 		base_filters['company'] = company
 
-	if frappe.session.user == 'Administrator' or can_change_pos_warehouse():
-		return frappe.get_all(
-			'Warehouse',
-			filters=base_filters,
-			pluck='name',
-			order_by='warehouse_name asc, name asc',
-		)
-
-	has_user_perm_rows = frappe.db.exists(
-		'User Permission',
-		{'user': frappe.session.user, 'allow': 'Warehouse'},
+	# No Warehouse User Permission: privileged roles (and anyone else who
+	# reaches here) see the full company warehouse list.
+	return frappe.get_all(
+		'Warehouse',
+		filters=base_filters,
+		pluck='name',
+		order_by='warehouse_name asc, name asc',
 	)
-
-	if not has_user_perm_rows:
-		return frappe.get_all(
-			'Warehouse',
-			filters=base_filters,
-			pluck='name',
-			order_by='warehouse_name asc, name asc',
-		)
-
-	try:
-		from frappe.core.doctype.user_permission.user_permission import (
-			get_permitted_documents,
-		)
-
-		permitted = get_permitted_documents('Warehouse') or []
-	except Exception:
-		permitted = [
-			p.for_value
-			for p in _get_user_permission_warehouses()
-			if p.for_value
-		]
-
-	expanded = _expand_warehouse_permission_names(permitted)
-	if not expanded:
-		return []
-
-	if not include_groups:
-		default_wh = get_user_default_warehouse(company=company)
-		if default_wh:
-			others = _query_warehouses(
-				expanded, company=company, include_groups=False
-			)
-			return [default_wh] + [n for n in others if n != default_wh]
-
-	names = _query_warehouses(
-		expanded, company=company, include_groups=include_groups
-	)
-	if names or include_groups:
-		return names
-
-	return _query_warehouses(expanded, company=company, include_groups=True)
 
 
 def validate_warehouse_permission(warehouse, company=None, pos_profile=None):

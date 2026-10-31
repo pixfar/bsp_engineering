@@ -28,11 +28,14 @@ frappe.query_reports["Warehouse Wise Daily Cash Summary Report"] = {
 		{
 			"fieldname": "warehouse",
 			"label": __("Warehouse"),
-			"fieldtype": "Link",
+			"fieldtype": "MultiSelectList",
 			"options": "Warehouse",
-			"get_query": function () {
+			"get_data": function (txt) {
 				var company = frappe.query_report.get_filter_value("company");
-				return { filters: { company: company, is_group: 0 } };
+				return frappe.db.get_link_options("Warehouse", txt, {
+					company: company,
+					is_group: 0,
+				});
 			},
 			"description": __("Leave blank to show every warehouse"),
 		},

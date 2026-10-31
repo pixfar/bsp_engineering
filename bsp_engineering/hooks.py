@@ -43,6 +43,14 @@ fixtures = [
     { "dt": "Workflow State" },
     { "dt": "Workflow" },
     { "dt": "Role", "filters": [["name", "in", ["BSP Admin", "BSP Viewer"]]] },
+    {
+        "dt": "Role Profile",
+        "filters": [["name", "in", ["Showroom User"]]],
+    },
+    {
+        "dt": "Module Profile",
+        "filters": [["name", "in", ["Showroom User"]]],
+    },
     { "dt": "Custom DocPerm", "filters": [["role", "=", "BSP Viewer"]] },
     # BSP Viewer on standard ERPNext reports. A Custom Role replaces the
     # report's own roles, so each record lists ERPNext's roles plus BSP
@@ -154,6 +162,9 @@ jinja = {
 	"methods": "bsp_engineering.utils.jinja_methods",
 }
 
+# Desk / POS boot payload (warehouse switcher eligibility, etc.)
+extend_bootinfo = "bsp_engineering.boot.boot_session"
+
 # Installation
 # ------------
 
@@ -222,6 +233,14 @@ override_doctype_class = {
 doc_events = {
 	'*': {
 		'on_update': 'bsp_engineering.doc_events.auto_submit.auto_submit_after_save',
+	},
+	'User': {
+		'after_insert': (
+			'bsp_engineering.doc_events.user.sync_pos_profile.after_insert'
+		),
+		'on_update': (
+			'bsp_engineering.doc_events.user.sync_pos_profile.on_update'
+		),
 	},
 	'Item': {
 		'before_insert': 'bsp_engineering.doc_events.item.auto_item_code.set_auto_item_code',

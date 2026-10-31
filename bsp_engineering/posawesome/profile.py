@@ -6,14 +6,19 @@ def get_active_pos_profile(user=None):
 	"""Return the POS profile currently assigned to the user."""
 	user = user or frappe.session.user
 
-	rows = frappe.get_all(
-		'POS Profile User',
-		filters={'user': user},
-		fields=['parent', 'modified'],
-		order_by='modified desc',
-		limit=1,
-	)
-	profile_name = rows[0].parent if rows else None
+	profile_name = None
+	if frappe.get_meta('User').has_field('posa_pos_profile'):
+		profile_name = frappe.db.get_value('User', user, 'posa_pos_profile')
+
+	if not profile_name:
+		rows = frappe.get_all(
+			'POS Profile User',
+			filters={'user': user},
+			fields=['parent', 'modified'],
+			order_by='modified desc',
+			limit=1,
+		)
+		profile_name = rows[0].parent if rows else None
 
 	# POS Settings has no default "pos_profile" field on this ERPNext version;
 	# reading it anyway throws for every user not assigned to a POS Profile.
