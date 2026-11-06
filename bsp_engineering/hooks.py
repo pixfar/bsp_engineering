@@ -17,7 +17,8 @@ app_include_css = [
     "bsp_report.bundle.css",
 ]
 app_include_js = [
-    "bsp_engineering.bundle.js"
+    "bsp_engineering.bundle.js",
+    "/assets/bsp_engineering/js/user_permission_manager.js?v=5",
 ]
 
 # Fixtures 
