@@ -5,7 +5,12 @@ frappe.provide('bsp_engineering.print');
 
 const BSP_PDF_PRINT_FORMATS = [
 	'BSP Sales Invoice',
+	'BSP Sales Invoice Bangla',
+	'BSP Sales Invoice English',
+	'BSP Sales Invoice For Agent',
 	'BSP Purchase Invoice',
+	'BSP Purchase Invoice Bangla',
+	'BSP Purchase Invoice English',
 ];
 
 const _original_printit = frappe.ui.form.PrintView.prototype.printit;

@@ -2237,7 +2237,7 @@
   "property": "default_print_format",
   "property_type": "Data",
   "row_name": null,
-  "value": "BSP Sales Invoice"
+  "value": "BSP Sales Invoice Bangla"
  },
  {
   "default_value": null,
@@ -2253,7 +2253,7 @@
   "property": "default_print_format",
   "property_type": "Data",
   "row_name": null,
-  "value": "BSP Purchase Invoice"
+  "value": "BSP Purchase Invoice Bangla"
  },
  {
   "default_value": null,
