@@ -135,7 +135,12 @@ def role_right_score(role):
 
 
 def get_simple_documents(role):
-	"""Plain document list for the one Manage Permissions screen."""
+	"""Plain document list for the one Manage Permissions screen.
+
+	Already-permitted doctypes (any View/Create/Update/Delete tick) sort to
+	the top of each group so staff see what the Role Profile / job already
+	allows without hunting.
+	"""
 	_only_manager()
 	_validate_role(role)
 	perms = _role_perms(role)
@@ -146,6 +151,9 @@ def get_simple_documents(role):
 			if not frappe.db.exists("DocType", doctype):
 				continue
 			current = perms.get(doctype, {})
+			row_perms = {
+				right: cint(current.get(right)) for right in SIMPLE_RIGHTS
+			}
 			built.append(
 				{
 					"doctype": doctype,
@@ -153,11 +161,16 @@ def get_simple_documents(role):
 					"is_submittable": cint(
 						frappe.db.get_value("DocType", doctype, "is_submittable")
 					),
-					"perms": {
-						right: cint(current.get(right)) for right in SIMPLE_RIGHTS
-					},
+					"perms": row_perms,
+					"has_perm": 1 if any(row_perms.values()) else 0,
 				}
 			)
+		built.sort(
+			key=lambda row: (
+				0 if row["has_perm"] else 1,
+				(row["label"] or "").casefold(),
+			)
+		)
 		if built:
 			groups.append({"label": _(label), "rows": built})
 	return groups

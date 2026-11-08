@@ -7,11 +7,15 @@ const DOC_RIGHTS = [
 	["delete", "delete", __("Delete")],
 ];
 
+const PLACE_ORDER = ["Warehouse", "Territory", "Employee", "User"];
+
 let _mute = false;
 let _tab = "places";
-let _place = "Company";
+let _place = "Warehouse";
 let _loaded_role = "";
 let _req = 0;
+let _place_search = "";
+let _doc_search = "";
 
 bsp_engineering.user_permission.open = function (user, listview) {
 	if (!frappe.user.has_role("System Manager")) {
@@ -61,12 +65,16 @@ bsp_engineering.user_permission.open = function (user, listview) {
 		],
 		primary_action_label: __("Done"),
 		primary_action() {
-			dialog.hide();
+			_save(dialog, listview);
 		},
 	});
 
 	_tab = "places";
-	_place = "Company";
+	_place = "Warehouse";
+	_place_search = "";
+	_doc_search = "";
+	dialog._bsp_data = null;
+	dialog._bsp_original = null;
 	dialog.show();
 	dialog.get_field("role").$wrapper.hide();
 	dialog.$wrapper.find(".modal-dialog").addClass("bsp-perm-dialog");
@@ -79,9 +87,15 @@ bsp_engineering.user_permission.open = function (user, listview) {
 
 function _empty(dialog) {
 	dialog.set_title(__("Manage Permissions"));
+	dialog._bsp_data = null;
+	dialog._bsp_original = null;
 	dialog.get_field("matrix").$wrapper.html(
 		`<div class="bsp-perm-empty text-muted">${__("Choose a person.")}</div>`,
 	);
+}
+
+function _clone(value) {
+	return JSON.parse(JSON.stringify(value || null));
 }
 
 function _load(dialog, listview, role) {
@@ -114,7 +128,9 @@ function _load(dialog, listview, role) {
 				dialog.set_value("role", data.role);
 			}
 			_mute = false;
-			_render(dialog, data, listview);
+			dialog._bsp_original = _clone(data);
+			dialog._bsp_data = _clone(data);
+			_render(dialog, listview);
 		},
 		error(err) {
 			if (req !== _req) {
@@ -132,14 +148,18 @@ function _fail(wrapper, message) {
 	wrapper.html(`<div class="bsp-perm-empty text-danger">${frappe.utils.escape_html(String(message))}</div>`);
 }
 
-function _render(dialog, data, listview) {
+function _render(dialog, listview) {
+	const data = dialog._bsp_data;
+	if (!data) {
+		return;
+	}
 	dialog.set_title(__("Manage Permissions — {0}", [data.full_name || data.user]));
 	const wrapper = dialog.get_field("matrix").$wrapper;
-	const scroll = wrapper.find(".bsp-perm-scroll").scrollTop() || 0;
+	const scroll = wrapper.find(".bsp-perm-scroll:visible").scrollTop() || 0;
 	wrapper.html(_screen(data));
-	wrapper.find(".bsp-perm-scroll").scrollTop(scroll);
+	wrapper.find(".bsp-perm-scroll:visible").scrollTop(scroll);
 	wrapper.off("change.bspperm").on("change.bspperm", ".bsp-perm-table input", (event) => {
-		_on_toggle(dialog, data, event.target, listview);
+		_on_toggle(dialog, event.target, listview);
 	});
 	wrapper.find(".bsp-perm-tab-btn").on("click", function () {
 		_tab = this.dataset.tab;
@@ -147,10 +167,23 @@ function _render(dialog, data, listview) {
 	});
 	wrapper.find(".bsp-place-tab").on("click", function () {
 		_place = this.dataset.place;
+		_place_search = "";
 		_show_place(wrapper, _place);
+		_apply_place_filter(wrapper);
+		wrapper.find(".bsp-place-search").val("");
+	});
+	wrapper.find(".bsp-place-search").on("input", function () {
+		_place_search = this.value || "";
+		_apply_place_filter(wrapper);
+	});
+	wrapper.find(".bsp-doc-search").on("input", function () {
+		_doc_search = this.value || "";
+		_apply_doc_filter(wrapper);
 	});
 	_show_tab(dialog, _tab);
 	_show_place(wrapper, _place);
+	_apply_place_filter(wrapper);
+	_apply_doc_filter(wrapper);
 }
 
 function _show_place(wrapper, place) {
@@ -173,6 +206,13 @@ function _show_tab(dialog, tab) {
 }
 
 function _screen(data) {
+	const profile_note = data.role_profile
+		? __("Role Profile: {0}. Jobs below come from that profile. Permitted documents are listed first.", [
+				data.role_profile,
+			])
+		: __(
+				"These ticks are for the job above. Everyone with that job gets them. Permitted documents are listed first.",
+			);
 	return `
 		<div class="bsp-perm-tabs">
 			<button type="button" class="bsp-perm-tab-btn" data-tab="places">${__("Places")}</button>
@@ -183,10 +223,13 @@ function _screen(data) {
 			${_place_table(data.places || [])}
 		</div>
 		<div class="bsp-perm-panel" data-panel="roles" hidden>
-			<p class="bsp-perm-note">${__(
-				"These ticks are for the job above. Everyone with that job gets them.",
-			)}</p>
+			<p class="bsp-perm-note">${profile_note}</p>
 			${_doc_summary(data)}
+			<div class="bsp-perm-search-wrap">
+				<input type="search" class="bsp-doc-search form-control"
+					placeholder="${__("Search documents...")}"
+					value="${frappe.utils.escape_html(_doc_search)}">
+			</div>
 			${_doc_table(data.documents || [])}
 		</div>`;
 }
@@ -237,30 +280,51 @@ function _right_words(perms) {
 		.join(", ");
 }
 
+function _sorted_place_rows(rows) {
+	return (rows || []).slice().sort((a, b) => {
+		if (a.allowed !== b.allowed) {
+			return a.allowed ? -1 : 1;
+		}
+		return String(a.label || a.value || "").localeCompare(
+			String(b.label || b.value || ""),
+			undefined,
+			{ sensitivity: "base" },
+		);
+	});
+}
+
 function _place_table(groups) {
-	const order = ["Warehouse", "Territory", "Employee", "Company"];
 	const by_name = {};
 	(groups || []).forEach((group) => {
 		by_name[group.allow] = group;
 	});
-	const tabs = order.map((name) => {
+	const tabs = PLACE_ORDER.map((name) => {
 		return `<button type="button" class="bsp-place-tab" data-place="${name}">${__(name)}</button>`;
 	}).join("");
-	const panels = order.map((name) => {
+	const panels = PLACE_ORDER.map((name) => {
 		const group = by_name[name];
 		return `<div class="bsp-place-panel" data-place="${name}" hidden>${group ? _one_place_table(group) : ""}</div>`;
 	}).join("");
-	return `<div class="bsp-place-tabs">${tabs}</div>${panels}`;
+	return `
+		<div class="bsp-place-tabs">${tabs}</div>
+		<div class="bsp-perm-search-wrap">
+			<input type="search" class="bsp-place-search form-control"
+				placeholder="${__("Search...")}"
+				value="${frappe.utils.escape_html(_place_search)}">
+		</div>
+		${panels}`;
 }
 
 function _one_place_table(group) {
 	const allow = frappe.utils.escape_html(group.allow);
-	const all_on = group.rows.length && group.rows.every((row) => row.allowed);
-	const rows = (group.rows || []).map((row) => {
+	const ordered = _sorted_place_rows(group.rows);
+	const all_on = ordered.length && ordered.every((row) => row.allowed);
+	const rows = ordered.map((row) => {
 			const value = frappe.utils.escape_html(row.value);
 			const label = frappe.utils.escape_html(row.label || row.value);
+			const hay = `${row.label || ""} ${row.value || ""}`.toLowerCase();
 			return `
-				<tr class="bsp-perm-row">
+				<tr class="bsp-perm-row" data-search="${frappe.utils.escape_html(hay)}">
 					<td>${label}</td>
 					<td class="bsp-perm-check">
 						<input type="checkbox" data-kind="place" data-action="allow"
@@ -293,6 +357,22 @@ function _one_place_table(group) {
 				<tbody>${rows}</tbody>
 			</table>
 		</div>`;
+}
+
+function _apply_place_filter(wrapper) {
+	const q = (_place_search || "").trim().toLowerCase();
+	wrapper.find(".bsp-place-panel:not([hidden]) .bsp-perm-row").each(function () {
+		const hay = (this.dataset.search || "").toLowerCase();
+		this.hidden = !!(q && !hay.includes(q));
+	});
+}
+
+function _apply_doc_filter(wrapper) {
+	const q = (_doc_search || "").trim().toLowerCase();
+	wrapper.find(".bsp-perm-panel[data-panel='roles'] .bsp-perm-row").each(function () {
+		const text = (this.textContent || "").toLowerCase();
+		this.hidden = !!(q && !text.includes(q));
+	});
 }
 
 function _doc_table(groups) {
@@ -345,122 +425,227 @@ function _doc_row(row) {
 		</tr>`;
 }
 
-function _on_toggle(dialog, data, input, listview) {
-	const wrapper = dialog.get_field("matrix").$wrapper;
-	wrapper.addClass("bsp-perm-busy");
-	const kind = input.dataset.kind;
-	const call = kind === "place"
-		? _place_call(data, input)
-		: _doc_call(data, input);
-	if (!call) {
-		wrapper.removeClass("bsp-perm-busy");
+function _on_toggle(dialog, input) {
+	const data = dialog._bsp_data;
+	if (!data) {
 		return;
 	}
-	frappe.call({
-		method: call.method,
-		args: call.args,
-		callback() {
-			wrapper.removeClass("bsp-perm-busy");
-			_load(dialog, listview, data.role);
-			if (kind === "place" && listview && listview.refresh) {
-				listview.refresh();
-			}
-		},
-		error() {
-			wrapper.removeClass("bsp-perm-busy");
-			input.checked = !input.checked;
-		},
-	});
+	if (input.dataset.kind === "place") {
+		_apply_place_local(data, input);
+	} else {
+		_apply_doc_local(data, input);
+	}
+	_render(dialog);
 }
 
-function _place_call(data, input) {
+function _apply_place_local(data, input) {
 	const group = (data.places || []).find((item) => item.allow === input.dataset.allow);
 	if (!group) {
-		return null;
+		return;
 	}
 	const checked = input.checked ? 1 : 0;
-	let changes;
 	if (input.dataset.action === "default") {
-		changes = group.rows
-			.filter((row) => row.allowed || row.value === input.dataset.value)
-			.map((row) => ({
-				allow: group.allow,
-				for_value: row.value,
-				allowed: 1,
-				is_default: checked && row.value === input.dataset.value ? 1 : 0,
-			}));
-	} else if (input.dataset.action === "all") {
-		changes = group.rows.map((row, index) => ({
-			allow: group.allow,
-			for_value: row.value,
-			allowed: checked,
-			is_default: checked && index === 0 ? 1 : 0,
-		}));
-	} else {
-		const has_other = group.rows.some(
-			(row) => row.value !== input.dataset.value && row.allowed && row.is_default,
-		);
-		changes = [{
-			allow: group.allow,
-			for_value: input.dataset.value,
-			allowed: checked,
-			is_default: checked && !has_other ? 1 : 0,
-		}];
+		(group.rows || []).forEach((row) => {
+			if (!row.allowed && row.value !== input.dataset.value) {
+				return;
+			}
+			if (row.value === input.dataset.value) {
+				row.allowed = 1;
+				row.is_default = checked;
+			} else if (row.allowed) {
+				row.is_default = checked ? 0 : row.is_default;
+			}
+		});
+		return;
 	}
-	return {
-		method: "bsp_engineering.api.user_permission.set_user_permissions",
-		args: { user: data.user, changes: JSON.stringify(changes) },
-	};
+	if (input.dataset.action === "all") {
+		(group.rows || []).forEach((row, index) => {
+			row.allowed = checked;
+			row.is_default = checked && index === 0 ? 1 : 0;
+		});
+		return;
+	}
+	const row = (group.rows || []).find((item) => item.value === input.dataset.value);
+	if (!row) {
+		return;
+	}
+	const has_other = (group.rows || []).some(
+		(item) => item.value !== row.value && item.allowed && item.is_default,
+	);
+	row.allowed = checked;
+	row.is_default = checked && !has_other ? 1 : 0;
+	if (!checked) {
+		row.is_default = 0;
+	}
 }
 
-function _doc_call(data, input) {
+function _apply_doc_local(data, input) {
 	let row;
 	(data.documents || []).some((group) => {
 		row = (group.rows || []).find((item) => item.doctype === input.dataset.doctype);
 		return !!row;
 	});
-	if (!row || !data.role) {
-		return null;
+	if (!row) {
+		return;
 	}
 	const checked = input.checked ? 1 : 0;
-	const perms = {
-		read: row.perms.read,
-		write: row.perms.write,
-		create: row.perms.create,
-		delete: row.perms.delete,
-	};
 	if (input.dataset.action === "all") {
 		DOC_RIGHTS.forEach(([, key]) => {
-			perms[key] = checked;
+			row.perms[key] = checked;
 		});
 	} else {
 		const spec = DOC_RIGHTS.find(([name]) => name === input.dataset.action);
-		perms[spec[1]] = checked;
+		row.perms[spec[1]] = checked;
 		if (!checked && spec[1] === "read") {
 			DOC_RIGHTS.forEach(([, key]) => {
-				perms[key] = 0;
+				row.perms[key] = 0;
 			});
 		}
 	}
-	if (perms.write || perms.create || perms.delete) {
-		perms.read = 1;
+	if (row.perms.write || row.perms.create || row.perms.delete) {
+		row.perms.read = 1;
 	}
-	perms.submit = row.is_submittable && perms.write ? 1 : 0;
-	return {
-		method: "bsp_engineering.api.role_permission.set_role_permissions",
-		args: {
-			role: data.role,
-			changes: JSON.stringify([{ doctype: row.doctype, perms }]),
-		},
-	};
+	row.perms.submit = row.is_submittable && row.perms.write ? 1 : 0;
+}
+
+function _place_diffs(original, data) {
+	const changes = [];
+	const by_allow = {};
+	(original.places || []).forEach((group) => {
+		by_allow[group.allow] = {};
+		(group.rows || []).forEach((row) => {
+			by_allow[group.allow][row.value] = row;
+		});
+	});
+	(data.places || []).forEach((group) => {
+		(group.rows || []).forEach((row) => {
+			const before = (by_allow[group.allow] || {})[row.value] || {
+				allowed: 0,
+				is_default: 0,
+			};
+			if (_flag(before.allowed) === _flag(row.allowed)
+				&& _flag(before.is_default) === _flag(row.is_default)) {
+				return;
+			}
+			changes.push({
+				allow: group.allow,
+				for_value: row.value,
+				allowed: _flag(row.allowed),
+				is_default: _flag(row.is_default),
+			});
+		});
+	});
+	return changes;
+}
+
+function _doc_diffs(original, data) {
+	const changes = [];
+	const by_doctype = {};
+	(original.documents || []).forEach((group) => {
+		(group.rows || []).forEach((row) => {
+			by_doctype[row.doctype] = row;
+		});
+	});
+	(data.documents || []).forEach((group) => {
+		(group.rows || []).forEach((row) => {
+			const before = by_doctype[row.doctype];
+			if (!before) {
+				return;
+			}
+			const same = DOC_RIGHTS.every(
+				([, key]) => _flag(before.perms[key]) === _flag(row.perms[key]),
+			) && _flag(before.perms.submit || 0) === _flag(row.perms.submit || 0);
+			if (same) {
+				return;
+			}
+			changes.push({
+				doctype: row.doctype,
+				perms: {
+					read: _flag(row.perms.read),
+					write: _flag(row.perms.write),
+					create: _flag(row.perms.create),
+					delete: _flag(row.perms.delete),
+					submit: _flag(row.perms.submit),
+				},
+			});
+		});
+	});
+	return changes;
+}
+
+function _flag(value) {
+	return value ? 1 : 0;
+}
+
+function _save(dialog, listview) {
+	const data = dialog._bsp_data;
+	const original = dialog._bsp_original;
+	if (!data || !original) {
+		dialog.hide();
+		return;
+	}
+	const place_changes = _place_diffs(original, data);
+	const doc_changes = _doc_diffs(original, data);
+	if (!place_changes.length && !doc_changes.length) {
+		dialog.hide();
+		return;
+	}
+
+	const wrapper = dialog.get_field("matrix").$wrapper;
+	wrapper.addClass("bsp-perm-busy");
+	frappe.dom.freeze(__("Saving permissions..."));
+
+	const tasks = [];
+	if (place_changes.length) {
+		tasks.push(
+			frappe.call({
+				method: "bsp_engineering.api.user_permission.set_user_permissions",
+				args: {
+					user: data.user,
+					changes: JSON.stringify(place_changes),
+				},
+			}),
+		);
+	}
+	if (doc_changes.length && data.role) {
+		tasks.push(
+			frappe.call({
+				method: "bsp_engineering.api.role_permission.set_role_permissions",
+				args: {
+					role: data.role,
+					changes: JSON.stringify(doc_changes),
+				},
+			}),
+		);
+	}
+
+	Promise.all(tasks)
+		.then(() => {
+			frappe.dom.unfreeze();
+			wrapper.removeClass("bsp-perm-busy");
+			frappe.show_alert({ message: __("Permissions updated"), indicator: "green" });
+			if (listview && listview.refresh) {
+				listview.refresh();
+			}
+			dialog.hide();
+		})
+		.catch(() => {
+			frappe.dom.unfreeze();
+			wrapper.removeClass("bsp-perm-busy");
+			frappe.msgprint(__("Could not save permissions. Try again."));
+		});
 }
 
 function _ensure_style() {
-	if (document.getElementById("bsp-perm-style")) {
+	const old = document.getElementById("bsp-perm-style");
+	if (old) {
+		old.remove();
+	}
+	if (document.getElementById("bsp-perm-style-v2")) {
 		return;
 	}
 	const style = document.createElement("style");
-	style.id = "bsp-perm-style";
+	style.id = "bsp-perm-style-v2";
 	style.textContent = `
 		.bsp-perm-dialog { width: min(980px, 96vw); }
 		.bsp-perm-tabs { display: flex; gap: 0; border-bottom: 1px solid #e6e6e6; margin-bottom: 12px; }
@@ -469,12 +654,14 @@ function _ensure_style() {
 			font-weight: 600; color: #667085;
 		}
 		.bsp-perm-tab-btn.active { color: #1b7a4a; border-bottom: 2px solid #1b7a4a; }
-		.bsp-place-tabs { display: flex; gap: 6px; margin: 0 0 8px; }
+		.bsp-place-tabs { display: flex; gap: 6px; margin: 0 0 8px; flex-wrap: wrap; }
 		.bsp-place-tab {
 			border: 1px solid #d0d5dd; background: #fff; border-radius: 6px;
 			padding: 6px 12px; cursor: pointer; font-weight: 600; color: #344054;
 		}
 		.bsp-place-tab.active { background: #1b7a4a; border-color: #1b7a4a; color: #fff; }
+		.bsp-perm-search-wrap { margin: 0 0 8px; }
+		.bsp-perm-search-wrap .form-control { max-width: 360px; }
 		.bsp-perm-all { position: relative; display: inline-flex; align-items: center; justify-content: center; }
 		.bsp-perm-all-label {
 			position: absolute; right: calc(100% + 8px); white-space: nowrap;

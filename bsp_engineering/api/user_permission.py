@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-ALLOWED = ("Warehouse", "Territory", "Company", "Employee")
+ALLOWED = ("Warehouse", "Territory", "Employee", "User")
 
 _SPECS = (
 	{
@@ -18,14 +18,14 @@ _SPECS = (
 		"title_field": None,
 	},
 	{
-		"doctype": "Company",
-		"filters": {},
-		"title_field": None,
-	},
-	{
 		"doctype": "Employee",
 		"filters": {"status": "Active"},
 		"title_field": "employee_name",
+	},
+	{
+		"doctype": "User",
+		"filters": {"enabled": 1, "name": ["!=", "Guest"]},
+		"title_field": "full_name",
 	},
 )
 
@@ -53,17 +53,40 @@ def _pick_role(roles, requested):
 	return roles[0] if roles else None
 
 
+def _roles_for_user(user):
+	"""Jobs for the Role Permissions tab: Role Profile roles when set."""
+	profile = frappe.db.get_value("User", user, "role_profile_name")
+	if profile and frappe.db.exists("Role Profile", profile):
+		roles = [
+			row.role
+			for row in frappe.get_all(
+				"Has Role",
+				filters={
+					"parent": profile,
+					"parenttype": "Role Profile",
+				},
+				fields=["role"],
+				order_by="idx asc",
+			)
+			if row.role and row.role not in _SKIP_ROLES
+		]
+		if roles:
+			return roles, profile
+	roles = [
+		name
+		for name in frappe.get_roles(user)
+		if name not in _SKIP_ROLES
+	]
+	return roles, profile
+
+
 @frappe.whitelist()
 def get_manage_permissions(user, role=None):
 	"""One screen: places for this person, document rights for one job."""
 	_only_manager()
 	if not user or not frappe.db.exists("User", user):
 		frappe.throw(_("User {0} was not found").format(user))
-	roles = [
-		name
-		for name in frappe.get_roles(user)
-		if name not in _SKIP_ROLES
-	]
+	roles, role_profile = _roles_for_user(user)
 	chosen = _pick_role(roles, role)
 	documents = []
 	if chosen:
@@ -74,6 +97,7 @@ def get_manage_permissions(user, role=None):
 	return {
 		"user": user,
 		"full_name": info["full_name"],
+		"role_profile": role_profile,
 		"roles": roles,
 		"role": chosen,
 		"places": info["groups"],
