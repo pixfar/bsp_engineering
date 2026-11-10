@@ -260,9 +260,10 @@ doc_events = {
 			'bsp_engineering.doc_events.sales_invoice.return_naming_series.enforce_return_naming_series',
 			'bsp_engineering.doc_events.invoice.sync_line_warehouse.sync_line_warehouse_from_source',
 		],
-		'on_submit': (
-			'bsp_engineering.doc_events.sales_invoice.create_payment.create_payment_entry_from_sales_invoice'
-		),
+		'on_submit': [
+			'bsp_engineering.doc_events.sales_invoice.create_payment.create_payment_entry_from_sales_invoice',
+			'bsp_engineering.doc_events.invoice.restock_on_return.restock_sales_invoice_return',
+		],
 		'before_cancel': (
 			'bsp_engineering.doc_events.invoice.cancel_linked_payments.cancel_linked_payment_entries'
 		),
@@ -284,6 +285,7 @@ doc_events = {
 		'on_submit': [
 			'bsp_engineering.doc_events.purchase_invoice.create_payment.create_payment_entry_from_purchase_invoice',
 			'bsp_engineering.doc_events.purchase_invoice.update_delivery_status.update_delivery_status',
+			'bsp_engineering.doc_events.invoice.restock_on_return.restock_purchase_invoice_return',
 		],
 		'on_update_after_submit': (
 			'bsp_engineering.doc_events.purchase_invoice.update_delivery_status.update_delivery_status'

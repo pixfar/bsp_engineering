@@ -45,12 +45,23 @@ def create_delivery_note_from_sales_invoice(doc):
 
 
 def _get_delivery_items(doc):
+	from posawesome.posawesome.api.invoice_processing.fulfillment_qty import (
+		get_returned_qty_by_invoice_item,
+		remaining_fulfillment_qty,
+	)
+
+	returned = get_returned_qty_by_invoice_item(
+		'Sales Invoice', [doc.name]
+	).get(doc.name, {})
+
 	items = []
 	for item in doc.items:
 		if not item.item_code:
 			continue
 
-		qty = (item.qty or 0) - (item.delivered_qty or 0)
+		qty = remaining_fulfillment_qty(
+			item.qty, item.delivered_qty, returned.get(item.name, 0)
+		)
 		if qty <= 0:
 			continue
 
